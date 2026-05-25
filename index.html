@@ -2,10 +2,10 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>NEURO-TERMINAL RPG</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
@@ -21,23 +21,14 @@
     </header>
     <div id="screen-output"></div>
     <div id="input-area">
-      <span class="prompt">> </span><input type="text" id="cmd-input" autocomplete="off" placeholder="RUN, BASE, LORE, SAVE...">
+      <span class="prompt">> </span>
+      <input type="text" id="cmd-input" autocomplete="off" autocapitalize="none" placeholder="RUN, BASE, LORE, SAVE...">
     </div>
     <nav id="choices-container"></nav>
     <footer id="terminal-log"></footer>
   </main>
 
-  <!-- Templates (hidden) -->
-  <template id="tmpl-choice">
-    <button class="choice-btn" tabindex="0"></button>
-  </template>
-
-  <script src="js/utils.js"></script>
-  <script src="js/loader.js"></script>
-  <script src="js/progression.js"></script>
-  <script src="js/lore.js"></script>
-  <script src="js/game.js"></script>
-  <script src="js/core.js"></script>
+  <script type="module" src="js/core.js"></script>
 </body>
 </html>
 
