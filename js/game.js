@@ -1,139 +1,195 @@
-import { player, mulberry32, saveGame } from './utils.js';
+import { player, updatePlayer, saveGame, debugLog } from './utils.js';
 import { eventsDB } from './loader.js';
-import { gainXP } from './progression.js';
-import { addLore } from './lore.js';
 
-/** @typedef {'safe'|'normal'|'deep'} RunMode */
-/** @type {RunMode|null} */
-let runMode = null;
-/** @type {number} */
-let eventsCount = 0;
-/** @type {number} */
-let runChargeStart = 0;
-/** @type {boolean} */
 let runActive = false;
-/** @type {number} */
 let currentEventIdx = 0;
+let eventsCount = 10;
+let runMode = 'normal';
 
-/**
+/** 
  * Старт вылазки
- * @param {RunMode} mode
+ * @param {'safe'|'normal'|'deep'} mode 
  */
 export function startRun(mode) {
-  runMode = mode;
-  eventsCount = 10;
-  currentEventIdx = 0;
-  runChargeStart = player.charge;
-  runActive = true;
+  debugLog(`startRun called with mode: ${mode}`);
+  debugLog(`Player before run: ${JSON.stringify(player)}`);
   
-  // TODO: ANALYTICS_HOOK | track run_start
-  log(`🟢 Вылазка: ${mode.toUpperCase()} | Событий: ${eventsCount}`);
-  nextEvent();
+  runMode = mode;
+  runActive = true;
+  currentEventIdx = 0;
+  eventsCount = 10;
+  
+  const multipliers = {
+    safe: 0.8,
+    normal: 1.0,
+    deep: 1.5
+  };
+  
+  const mult = multipliers[mode] || 1.0;
+  
+  window.screenLog(`\n=== ВЫЛАЗКА: ${mode.toUpperCase()} ===`);
+  window.screenLog(`Множитель: x${mult}`);
+  window.screenLog(`Событий: ${eventsCount}`);
+  window.screenLog('');
+  
+  debugLog(`Run started: mode=${mode}, mult=${mult}`);
+  
+  // Показываем первое событие
+  setTimeout(() => nextEvent(), 500);
 }
 
-/** Генерация и показ следующего события */
+/** Следующее событие */
 export function nextEvent() {
-  if (!runActive || currentEventIdx >= eventsCount) {
+  debugLog(`nextEvent: idx=${currentEventIdx}, active=${runActive}`);
+  
+  if (!runActive) {
+    debugLog('Run not active, returning');
+    return;
+  }
+  
+  if (currentEventIdx >= eventsCount) {
+    debugLog('All events completed');
     endRun(true);
     return;
   }
-
-  const seed = Date.now() ^ player.level ^ (player.wisdom % 100) ^ currentEventIdx;
-  const rng = mulberry32(seed);
-  const pool = eventsDB.filter(e => e.minLevel <= player.level);
-  if (pool.length === 0) { endRun(true); return; }
-  
-  const evt = pool[Math.floor(rng() * pool.length)];
-  displayEvent(evt);
-}
-
-/** Отрисовка события */
-function displayEvent(evt) {
-  clearChoices();
-  screenLog(`\n[${evt.ID}] ${evt.Text}`);
-  
-  addLore(evt.loreFragment, Number(evt.minLevel) * 5);
-
-  const c1 = { label: evt.Choice1, deltas: { c: evt.C1_dCharge, w: evt.C1_dWisdom, cr: evt.C1_dCredits } };
-  const c2 = { label: evt.Choice2, deltas: { c: evt.C2_dCharge, w: evt.C2_dWisdom, cr: evt.C2_dCredits } };
-  
-  // Масштабирование по режиму
-  const mult = runMode === 'safe' ? 0.8 : runMode === 'deep' ? 1.5 : 1;
-  c1.deltas.c = Math.round(c1.deltas.c * mult);
-  c1.deltas.w = Math.round(c1.deltas.w * mult);
-  c1.deltas.cr = Math.round(c1.deltas.cr * mult);
-  c2.deltas.c = Math.round(c2.deltas.c * mult);
-  c2.deltas.w = Math.round(c2.deltas.w * mult);
-  c2.deltas.cr = Math.round(c2.deltas.cr * mult);
-
-  // Trace Protocol (Ищейка) - пассивный бонус
-  const showDelta = player.cls === 'tracker' ? true : false;
-
-  createChoiceBtn(c1.label, () => applyChoice(evt.ID, c1.deltas), showDelta ? ` (${c1.deltas.c > 0 ? '+' : ''}${c1.deltas.c}⚡, ${c1.deltas.w > 0 ? '+' : ''}${c1.deltas.w}🧠)` : '');
-  createChoiceBtn(c2.label, () => applyChoice(evt.ID, c2.deltas), showDelta ? ` (${c2.deltas.c > 0 ? '+' : ''}${c2.deltas.c}⚡, ${c2.deltas.w > 0 ? '+' : ''}${c2.deltas.w}🧠)` : '');
-}
-
-/** Применение дельт */
-function applyChoice(evtId, deltas) {
-  if (!runActive) return;
-  
-  player.charge += deltas.c;
-  player.wisdom += deltas.w;
-  player.credits += deltas.cr;
   
   if (player.charge <= 0) {
-    player.charge = 0;
+    debugLog('Charge depleted');
     endRun(false);
     return;
   }
   
-  updateStatsUI();
-  currentEventIdx++;
-  setTimeout(nextEvent, 600);
+  // Берем случайное событие
+  const availableEvents = eventsDB.filter(e => !e.minLevel || e.minLevel <= player.level);
+  
+  if (availableEvents.length === 0) {
+    window.screenLog('⚠️ Нет доступных событий для вашего уровня');
+    debugLog('No events available');
+    endRun(true);
+    return;
+  }
+  
+  const event = availableEvents[Math.floor(Math.random() * availableEvents.length)];
+  displayEvent(event);
 }
 
-/** Завершение вылазки */
+/** 
+ * Показ события
+ * @param {Object} event 
+ */
+function displayEvent(event) {
+  debugLog(`displayEvent: ${event.ID || 'unknown'}`);
+  
+  window.clearChoices();
+  
+  window.screenLog(`\n[СОБЫТИЕ ${currentEventIdx + 1}/${eventsCount}]`);
+  window.screenLog(event.Text || event.text || 'Неизвестное событие');
+  window.screenLog('');
+  
+  // Выбор 1
+  const c1Label = event.Choice1 || event.choice1 || 'Выбор 1';
+  const c1Deltas = {
+    charge: event.C1_dCharge || event.c1_dCharge || 0,
+    wisdom: event.C1_dWisdom || event.c1_dWisdom || 0,
+    credits: event.C1_dCredits || event.c1_dCredits || 0
+  };
+  
+  // Выбор 2
+  const c2Label = event.Choice2 || event.choice2 || 'Выбор 2';
+  const c2Deltas = {
+    charge: event.C2_dCharge || event.c2_dCharge || 0,
+    wisdom: event.C2_dWisdom || event.c2_dWisdom || 0,
+    credits: event.C2_dCredits || event.c2_dCredits || 0
+  };
+  
+  // Применяем множитель режима
+  const mult = runMode === 'deep' ? 1.5 : runMode === 'safe' ? 0.8 : 1.0;
+  
+  window.createChoice(`${c1Label}`, () => {
+    applyChoice(c1Deltas, mult);
+  });
+  
+  window.createChoice(`${c2Label}`, () => {
+    applyChoice(c2Deltas, mult);
+  });
+  
+  debugLog(`Event displayed with choices: ${c1Label}, ${c2Label}`);
+}
+
+/** 
+ * Применение выбора
+ * @param {Object} deltas 
+ * @param {number} mult 
+ */
+function applyChoice(deltas, mult) {
+  debugLog(`applyChoice: ${JSON.stringify(deltas)} x ${mult}`);
+  
+  const dCharge = Math.round(deltas.charge * mult);
+  const dWisdom = Math.round(deltas.wisdom * mult);
+  const dCredits = Math.round(deltas.credits * mult);
+  
+  const newCharge = player.charge + dCharge;
+  const newWisdom = player.wisdom + dWisdom;
+  const newCredits = player.credits + dCredits;
+  
+  updatePlayer({
+    charge: newCharge,
+    wisdom: newWisdom,
+    credits: newCredits
+  });
+  
+  window.updateStatsUI();
+  
+  window.screenLog(`\nРезультат: ${dCharge > 0 ? '+' : ''}${dCharge}⚡, ${dWisdom > 0 ? '+' : ''}${dWisdom}🧠, ${dCredits > 0 ? '+' : ''}${dCredits}💳`);
+  
+  debugLog(`New stats: charge=${newCharge}, wisdom=${newWisdom}, credits=${newCredits}`);
+  
+  if (newCharge <= 0) {
+    debugLog('Charge <= 0, ending run');
+    setTimeout(() => endRun(false), 1000);
+  } else {
+    currentEventIdx++;
+    debugLog(`Moving to event ${currentEventIdx}`);
+    setTimeout(() => nextEvent(), 1500);
+  }
+}
+
+/** 
+ * Конец вылазки
+ * @param {boolean} success 
+ */
 function endRun(success) {
+  debugLog(`endRun: success=${success}`);
   runActive = false;
+  
   if (success) {
-    gainXP(eventsCount);
-    screenLog('\n✅ Вылазка завершена успешно. Возврат на базу.');
+    const xpGain = 50 * (1 + player.wisdom / 100);
+    updatePlayer({ xp: player.xp + xpGain });
+    window.screenLog(`\n✅ ВЫЛАЗКА ЗАВЕРШЕНА`);
+    window.screenLog(`Получено XP: ${Math.floor(xpGain)}`);
   } else {
     const penalty = Math.floor(player.credits * 0.3);
-    player.credits = Math.max(0, player.credits - penalty);
-    screenLog(`\n💀 Заряд иссяк. Потеряно ${penalty} кредитов.`);
+    updatePlayer({ credits: Math.max(0, player.credits - penalty) });
+    window.screenLog(`\n💀 ЗАРЯД ИСЧЕРПАН`, 'error');
+    window.screenLog(`Потеряно кредитов: ${penalty}`, 'error');
   }
+  
+  window.updateStatsUI();
   saveGame();
-  updateStatsUI();
-  clearChoices();
+  window.clearChoices();
+  
+  window.createChoice('⬅️ НАЗАД В МЕНЮ', () => {
+    window.screenLog('\n> BASE');
+    setTimeout(() => window.showScreen('main'), 100);
+  });
+  
+  debugLog(`Run ended. Final stats: ${JSON.stringify(player)}`);
 }
 
-/** Backdoor (Хакер) */
-export function useBackdoor() {
-  if (player.cls !== 'hacker' || player.charge >= runChargeStart) return;
-  player.charge = runChargeStart;
-  log('🔓 Backdoor активирован. Заряд восстановлен.');
+/** Очистка состояния вылазки */
+export function clearRun() {
+  runActive = false;
+  currentEventIdx = 0;
+  debugLog('Run cleared');
 }
-
-/** Reality Patch (Маг) */
-export function useRealityPatch() {
-  if (player.cls !== 'mage' || player.credits < 2) return;
-  player.credits -= 2;
-  player.wisdom += 1;
-  log('🔮 Reality Patch: -2💳, +1🧠');
-}
-
-// UI helpers
-function createChoiceBtn(label, onClick, suffix = '') {
-  const btn = document.createElement('button');
-  btn.className = 'choice-btn';
-  btn.textContent = label + suffix;
-  btn.onclick = onClick;
-  document.getElementById('choices-container').appendChild(btn);
-}
-function clearChoices() { document.getElementById('choices-container').innerHTML = ''; }
-export function clearRun() { runActive = false; currentEventIdx = 0; clearChoices(); }
-
-// Экспорт для core.js
-window.gameAPI = { startRun, useBackdoor, useRealityPatch, clearRun };
 
