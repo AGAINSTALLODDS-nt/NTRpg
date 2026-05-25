@@ -1,165 +1,427 @@
-import { player, saveGame, loadGame, exportSave, importSave, toggleDebug, debugLog, getDebugState } from './utils.js';
+import { 
+  player, 
+  saveGame, 
+  loadGame, 
+  exportSave, 
+  importSave, 
+  toggleDebug, 
+  debugLog, 
+  isDebugMode,
+  godmodeSet,
+  godmodeAll,
+  updatePlayer 
+} from './utils.js';
 import { loadCSV } from './loader.js';
 import { buyUpgrade } from './progression.js';
 import { getLoreArchive } from './lore.js';
-import { startRun, useBackdoor, useRealityPatch, clearRun } from './game.js';
+import { startRun, clearRun } from './game.js';
 
+// DOM элементы
 const output = document.getElementById('screen-output');
 const input = document.getElementById('cmd-input');
 const choices = document.getElementById('choices-container');
+const statusBar = document.getElementById('status-bar');
 
-// 🔧 Глобальный ловец ошибок (спасает от silent crashes на iOS)
+// Глобальный перехват ошибок
 window.addEventListener('error', (e) => {
-  screenLog(`💥 КРИТИЧЕСКАЯ ОШИБКА: ${e.message}\n📍 ${e.filename}:${e.lineno}`, 'error');
-  debugLog(`ERR: ${e.stack || e.message}`);
+  const msg = `💥 ERROR: ${e.message} at ${e.filename}:${e.lineno}`;
+  screenLog(msg, 'error');
+  debugLog(`CRITICAL: ${e.error?.stack || msg}`);
+  console.error(e);
 });
+
 window.addEventListener('unhandledrejection', (e) => {
-  screenLog(`💥 ОШИБКА PROMISE: ${e.reason}`, 'error');
-  debugLog(`PROMISE ERR: ${e.reason}`);
+  const msg = `💥 PROMISE ERROR: ${e.reason}`;
+  screenLog(msg, 'error');
+  debugLog(`UNHANDLED: ${e.reason}`);
+  console.error(e);
 });
 
 /** Инициализация */
 async function init() {
-  debugLog('INIT START');
+  debugLog('=== INIT START ===');
+  
   try {
+    // Загрузка CSV
     await loadCSV();
+    debugLog('CSV loaded');
+    
+    // Загрузка сохранения
     loadGame();
+    debugLog('Game loaded');
+    
+    // Обновление UI
     updateStatsUI();
-    screenLog('NEURO-TERMINAL v1.0-PROTOTYPE\nПодключение к древней сети...\nВведите > RUN, > BASE, > LORE, > SAVE\n');
+    debugLog('UI updated');
+    
+    // Приветствие
+    screenLog('NEURO-TERMINAL v1.0-PROTOTYPE');
+    screenLog('Подключение к древней сети...');
+    screenLog('');
+    screenLog('Доступные команды:');
+    screenLog('  > RUN    - начать вылазку');
+    screenLog('  > BASE   - база данных');
+    screenLog('  > LORE   - архив лора');
+    screenLog('  > SAVE   - сохранить');
+    screenLog('  > DEBUG  - режим отладки');
+    screenLog('  > CLEAR  - очистить экран');
+    screenLog('');
+    
+    // Фокус на input
     input.focus();
-    debugLog('INIT OK');
+    
+    debugLog('=== INIT COMPLETE ===');
+    
   } catch (err) {
-    screenLog('❌ Ошибка инициализации. Проверьте консоль.', 'error');
-    debugLog(`INIT FAIL: ${err.message}`);
+    screenLog(`❌ INIT FAILED: ${err.message}`, 'error');
+    debugLog(`INIT ERROR: ${err.stack}`);
+    console.error(err);
   }
 }
 
-/** 🍏 FIX: Обработка ввода для iOS Safari */
-input.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.keyCode === 13) {
-    e.preventDefault(); // Предотвращаем скролл/зум на iOS
-    const cmd = input.value.trim().toUpperCase();
-    input.value = '';
-    if (cmd) processCommand(cmd);
+/** 
+ * Обработка ввода - ИСПРАВЛЕНО ДЛЯ iOS
+ * @param {KeyboardEvent} e 
+ */
+function handleInput(e) {
+  // Проверяем Enter разными способами для совместимости
+  if (e.key === 'Enter' || e.keyCode === 13 || e.which === 13) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const cmd = input.value.trim();
+    debugLog(`Input detected: "${cmd}" (key: ${e.key}, code: ${e.keyCode})`);
+    
+    if (cmd) {
+      processCommand(cmd.toUpperCase());
+      input.value = '';
+    }
+    
+    // Возвращаем фокус
+    setTimeout(() => input.focus(), 10);
+  }
+}
+
+// Удаляем старые слушатели (если есть)
+input.replaceWith(input.cloneNode(true));
+const newInput = document.getElementById('cmd-input');
+
+// Добавляем слушатели
+newInput.addEventListener('keydown', handleInput);
+newInput.addEventListener('keypress', handleInput);
+newInput.addEventListener('keyup', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
   }
 });
 
-/** Роутинг терминала */
+// Фокус при клике на терминал
+document.getElementById('terminal').addEventListener('click', () => {
+  newInput.focus();
+});
+
+/** 
+ * Обработка команд
+ * @param {string} cmd 
+ */
 function processCommand(cmd) {
   screenLog(`> ${cmd}`);
-  debugLog(`CMD: "${cmd}" | Player: Charge=${player.charge} Wis=${player.wisdom} Cred=${player.credits} Lvl=${player.level}`);
+  debugLog(`Processing command: "${cmd}"`);
+  debugLog(`Player state: ${JSON.stringify(player)}`);
   
   try {
-    // 🔑 GODMODE COMMAND
+    // GODMODE команды
     if (cmd.startsWith('GODMODE ')) {
-      const parts = cmd.slice(8).trim().split(/\s+/);
-      const [type, val] = parts;
-      if (type === 'SET' && val) {
-        const [stat, num] = val.split('=');
-        if (['charge','wisdom','credits','level','xp'].includes(stat) && !isNaN(Number(num))) {
-          player[stat] = Number(num);
-          screenLog(`🔓 GODMODE: ${stat} установлен в ${num}`);
-          debugLog(`CHEAT: ${stat}=${num}`);
-          updateStatsUI(); saveGame();
-        } else {
-          screenLog('⚠️ Формат: GODMODE SET <stat>=<value> (charge, wisdom, credits, level, xp)');
-        }
-      } else if (type === 'ALL') {
-        Object.assign(player, { charge: 100, wisdom: 1000, credits: 9999, level: 50, xp: 0 });
-        screenLog('🔓 GODMODE: ALL STATS MAXED');
-        updateStatsUI(); saveGame();
-      } else {
-        screenLog('⚠️ Формат: GODMODE SET <stat>=<value> или GODMODE ALL');
+      const args = cmd.slice(8).trim();
+      
+      if (args === 'ALL') {
+        godmodeAll();
+        screenLog('🔓 GODMODE: ВСЕ СТАТЫ МАКСИМАЛЬНЫ', 'error');
+        updateStatsUI();
+        return;
       }
+      
+      if (args.startsWith('SET ')) {
+        const [stat, val] = args.slice(4).trim().split('=');
+        if (stat && val !== undefined) {
+          const num = Number(val);
+          if (!isNaN(num)) {
+            if (godmodeSet(stat.toLowerCase(), num)) {
+              screenLog(`🔓 GODMODE: ${stat} = ${num}`);
+              updateStatsUI();
+            } else {
+              screenLog('⚠️ Неверное имя стата', 'error');
+            }
+          } else {
+            screenLog('⚠️ Значение должно быть числом', 'error');
+          }
+        } else {
+          screenLog('⚠️ Формат: GODMODE SET <stat>=<value>', 'error');
+        }
+        return;
+      }
+      
+      screenLog('⚠️ GODMODE команды: ALL, SET <stat>=<value>', 'error');
       return;
     }
-
-    // 🔍 DEBUG COMMAND
+    
+    // DEBUG команда
     if (cmd === 'DEBUG') {
-      toggleDebug();
+      const enabled = toggleDebug();
+      screenLog(`🔍 DEBUG режим: ${enabled ? 'ВКЛ' : 'ВЫК'}`);
       return;
     }
-
+    
+    // Основные команды
     switch (cmd) {
-      case 'RUN': showScreen('run_menu'); break;
-      case 'BASE': showScreen('base'); break;
-      case 'LORE': showScreen('lore'); break;
-      case 'SAVE': saveGame(); screenLog('💾 Сохранено.'); break;
-      case 'EXPORT': exportSave(); break;
-      case 'IMPORT':
-        const json = prompt('Вставьте JSON сохранения:');
-        if (json) importSave(json);
+      case 'RUN':
+        debugLog('RUN command - showing menu');
+        showScreen('run_menu');
         break;
-      case 'CLEAR': output.innerHTML = ''; break;
-      default: screenLog('⚠️ Команда не распознана. Доступно: RUN, BASE, LORE, SAVE, EXPORT, IMPORT, DEBUG, GODMODE, CLEAR');
+        
+      case 'BASE':
+        debugLog('BASE command - showing base');
+        showScreen('base');
+        break;
+        
+      case 'LORE':
+        debugLog('LORE command - showing lore');
+        showScreen('lore');
+        break;
+        
+      case 'SAVE':
+        debugLog('SAVE command');
+        if (saveGame()) {
+          screenLog('💾 Игра сохранена');
+        } else {
+          screenLog('❌ Ошибка сохранения', 'error');
+        }
+        break;
+        
+      case 'EXPORT':
+        debugLog('EXPORT command');
+        if (exportSave()) {
+          screenLog('📤 Сохранение экспортировано');
+        }
+        break;
+        
+      case 'IMPORT':
+        debugLog('IMPORT command');
+        const json = prompt('Вставьте JSON сохранения:');
+        if (json && importSave(json)) {
+          screenLog('📥 Сохранение импортировано');
+          updateStatsUI();
+        } else if (json) {
+          screenLog('❌ Ошибка импорта', 'error');
+        }
+        break;
+        
+      case 'CLEAR':
+        debugLog('CLEAR command');
+        output.innerHTML = '';
+        break;
+        
+      case 'HELP':
+        screenLog('Команды: RUN, BASE, LORE, SAVE, EXPORT, IMPORT, DEBUG, GODMODE, CLEAR');
+        break;
+        
+      default:
+        screenLog(`⚠️ Неизвестная команда: ${cmd}`);
+        screenLog('Введите HELP для списка команд');
+        debugLog(`Unknown command: ${cmd}`);
     }
+    
   } catch (err) {
-    screenLog(`💥 Ошибка обработки: ${err.message}`, 'error');
-    debugLog(`PROCESS ERR: ${err.stack}`);
+    screenLog(`💥 Ошибка: ${err.message}`, 'error');
+    debugLog(`COMMAND ERROR: ${err.stack}`);
+    console.error(err);
   }
 }
 
-/** Переключение экранов */
+/** 
+ * Показ экрана
+ * @param {'run_menu'|'base'|'lore'|'main'} type 
+ */
 function showScreen(type) {
+  debugLog(`showScreen: ${type}`);
   clearChoices();
   output.innerHTML = '';
+  
   switch(type) {
     case 'run_menu':
-      screenLog('Выберите режим вылазки:');
-      createChoice('SAFE (x0.8 риск)', () => startRun('safe'));
-      createChoice('NORMAL (x1.0 риск)', () => startRun('normal'));
-      createChoice('DEEP (x1.5 риск)', () => startRun('deep'));
-      createChoice('Назад', () => showScreen('main'));
+      screenLog('=== ВЫЛАЗКА ===');
+      screenLog('Выберите режим:');
+      screenLog('');
+      
+      createChoice('🟢 SAFE (риск x0.8, награда x0.8)', () => {
+        debugLog('Starting SAFE run');
+        startRun('safe');
+      });
+      
+      createChoice('🟡 NORMAL (риск x1.0, награда x1.0)', () => {
+        debugLog('Starting NORMAL run');
+        startRun('normal');
+      });
+      
+      createChoice('🔴 DEEP (риск x1.5, награда x1.5)', () => {
+        debugLog('Starting DEEP run');
+        startRun('deep');
+      });
+      
+      createChoice('⬅️ НАЗАД', () => showScreen('main'));
       break;
+      
     case 'base':
-      screenLog('🏠 БАЗА | Кредиты: ' + player.credits);
-      createChoice('⚡ +10 Заряд (100💳)', () => buyUpgrade('charge'));
-      createChoice('💳 +50 Кредитов (бесплатно)', () => buyUpgrade('credits'));
-      createChoice('🧠 Мудрость пассив +5% (150💳)', () => buyUpgrade('wisdom'));
-      createChoice('Назад', () => showScreen('main'));
+      screenLog('=== БАЗА ===');
+      screenLog(`Кредиты: ${player.credits} 💳`);
+      screenLog('');
+      
+      createChoice(`⚡ +10 Заряд (100 💳)`, () => {
+        debugLog('Buying charge upgrade');
+        buyUpgrade('charge');
+        updateStatsUI();
+        showScreen('base');
+      });
+      
+      createChoice(`💳 +50 Кредитов (бесплатно)`, () => {
+        debugLog('Buying credits upgrade');
+        buyUpgrade('credits');
+        updateStatsUI();
+        showScreen('base');
+      });
+      
+      createChoice(`🧠 Мудрость +5% пассивно (150 💳)`, () => {
+        debugLog('Buying wisdom upgrade');
+        buyUpgrade('wisdom');
+        updateStatsUI();
+        showScreen('base');
+      });
+      
+      createChoice('⬅️ НАЗАД', () => showScreen('main'));
       break;
+      
     case 'lore':
-      screenLog(getLoreArchive());
-      createChoice('Назад', () => showScreen('main'));
+      screenLog('=== АРХИВ ЛОРА ===');
+      screenLog('');
+      const lore = getLoreArchive();
+      screenLog(lore || 'Архив пуст. Исследуйте глубже.');
+      screenLog('');
+      
+      createChoice('⬅️ НАЗАД', () => showScreen('main'));
       break;
+      
     case 'main':
-      screenLog('NEURO-TERMINAL v1.0-PROTOTYPE\nГотов к подключению.\nВведите > RUN, > BASE, > LORE, > SAVE');
+    default:
+      screenLog('NEURO-TERMINAL v1.0-PROTOTYPE');
+      screenLog('Готов к подключению.');
+      screenLog('');
+      screenLog('Введите команду:');
+      screenLog('  > RUN    - вылазка');
+      screenLog('  > BASE   - база');
+      screenLog('  > LORE   - архив');
+      screenLog('  > DEBUG  - отладка');
       break;
   }
 }
 
-/** Эффект печати / лог */
+/** 
+ * Вывод текста на экран
+ * @param {string} text 
+ * @param {'info'|'error'|'success'} type 
+ */
 export function screenLog(text, type = 'info') {
   const div = document.createElement('div');
   div.textContent = text;
-  if (type === 'error') div.classList.add('error');
+  div.style.marginBottom = '4px';
+  
+  if (type === 'error') {
+    div.classList.add('error');
+  } else if (type === 'success') {
+    div.style.color = '#00ff41';
+  }
+  
   output.appendChild(div);
   output.scrollTop = output.scrollHeight;
-  if (getDebugState()) debugLog(`UI RENDER: ${text.slice(0, 50)}...`);
+  
+  debugLog(`UI: ${text.slice(0, 100)}`);
 }
 
-/** Кнопки выбора */
-function clearChoices() { document.getElementById('choices-container').innerHTML = ''; }
+/** Создание кнопки выбора */
+function clearChoices() {
+  if (choices) {
+    choices.innerHTML = '';
+  }
+}
+
+/** 
+ * @param {string} label 
+ * @param {() => void} onClick 
+ */
 function createChoice(label, onClick) {
+  if (!choices) {
+    debugLog('ERROR: choices container not found');
+    return;
+  }
+  
   const btn = document.createElement('button');
   btn.className = 'choice-btn';
   btn.textContent = label;
-  btn.onclick = onClick;
-  document.getElementById('choices-container').appendChild(btn);
+  btn.tabIndex = 0;
+  
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    debugLog(`Choice clicked: ${label}`);
+    onClick();
+  });
+  
+  // Keyboard accessibility
+  btn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick();
+    }
+  });
+  
+  choices.appendChild(btn);
+  debugLog(`Choice created: ${label}`);
 }
 
-/** Статус-бар */
+/** Обновление статус бара */
 function updateStatsUI() {
-  document.getElementById('stat-charge').textContent = `⚡ ${player.charge}`;
-  document.getElementById('stat-wisdom').textContent = `🧠 ${player.wisdom}`;
-  document.getElementById('stat-credits').textContent = `💳 ${player.credits}`;
-  document.getElementById('stat-level').textContent = `📊 LVL ${player.level}`;
+  try {
+    const chargeEl = document.getElementById('stat-charge');
+    const wisdomEl = document.getElementById('stat-wisdom');
+    const creditsEl = document.getElementById('stat-credits');
+    const levelEl = document.getElementById('stat-level');
+    
+    if (chargeEl) chargeEl.textContent = `⚡ ${player.charge}`;
+    if (wisdomEl) wisdomEl.textContent = `🧠 ${player.wisdom}`;
+    if (creditsEl) creditsEl.textContent = `💳 ${player.credits}`;
+    if (levelEl) levelEl.textContent = `📊 LVL ${player.level}`;
+    
+    debugLog(`UI Stats updated: ${JSON.stringify(player)}`);
+  } catch (err) {
+    debugLog(`updateStatsUI error: ${err.message}`);
+  }
 }
 
 // Экспорт для других модулей
 window.screenLog = screenLog;
 window.updateStatsUI = updateStatsUI;
 window.createChoice = createChoice;
+window.clearChoices = clearChoices;
+window.debugLog = debugLog;
 
-document.addEventListener('DOMContentLoaded', init);
+// Запуск при загрузке DOM
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
+// Фокус при загрузке
+window.addEventListener('load', () => {
+  newInput.focus();
+});
 
