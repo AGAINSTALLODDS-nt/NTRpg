@@ -1,136 +1,149 @@
-import { player, updatePlayer, saveGame, debugLog } from './utils.js';
+import { player, updatePlayer, saveGame, debugLog, mulberry32 } from './utils.js';
 import { eventsDB } from './loader.js';
+import { gainXP } from './progression.js';
+import { addLore } from './lore.js';
 
-let runActive = false;
-let currentEventIdx = 0;
+/** @typedef {'safe'|'normal'|'deep'} RunMode */
+/** @type {RunMode|null} */
+let runMode = null;
+/** @type {number} */
 let eventsCount = 10;
-let runMode = 'normal';
+/** @type {number} */
+let runChargeStart = 0;
+/** @type {boolean} */
+let runActive = false;
+/** @type {number} */
+let currentEventIdx = 0;
 
-/** 
+/**
  * Старт вылазки
- * @param {'safe'|'normal'|'deep'} mode 
+ * @param {RunMode} mode
  */
 export function startRun(mode) {
-  debugLog(`startRun called with mode: ${mode}`);
-  debugLog(`Player before run: ${JSON.stringify(player)}`);
+  debugLog(`startRun: mode=${mode}`);
   
   runMode = mode;
-  runActive = true;
-  currentEventIdx = 0;
   eventsCount = 10;
+  currentEventIdx = 0;
+  runChargeStart = player.charge;
+  runActive = true;
   
-  const multipliers = {
-    safe: 0.8,
-    normal: 1.0,
-    deep: 1.5
-  };
+  const screenLog = window.screenLog;
+  const clearChoices = window.clearChoices;
+  const createChoice = window.createChoice;
   
-  const mult = multipliers[mode] || 1.0;
+  if (!screenLog || !clearChoices || !createChoice) {
+    debugLog('startRun: UI functions not ready');
+    return;
+  }
   
-  window.screenLog(`\n=== ВЫЛАЗКА: ${mode.toUpperCase()} ===`);
-  window.screenLog(`Множитель: x${mult}`);
-  window.screenLog(`Событий: ${eventsCount}`);
-  window.screenLog('');
+  screenLog(`\n🟢 ВЫЛАЗКА: ${mode.toUpperCase()}`);
+  screenLog(`Событий: ${eventsCount}`);
+  screenLog('');
   
-  debugLog(`Run started: mode=${mode}, mult=${mult}`);
-  
-  // Показываем первое событие
   setTimeout(() => nextEvent(), 500);
 }
 
-/** Следующее событие */
+/** Генерация и показ следующего события */
 export function nextEvent() {
-  debugLog(`nextEvent: idx=${currentEventIdx}, active=${runActive}`);
+  debugLog(`nextEvent: idx=${currentEventIdx}/${eventsCount}, active=${runActive}`);
+  
+  const screenLog = window.screenLog;
+  const clearChoices = window.clearChoices;
+  const createChoice = window.createChoice;
   
   if (!runActive) {
-    debugLog('Run not active, returning');
+    debugLog('nextEvent: run not active');
     return;
   }
   
   if (currentEventIdx >= eventsCount) {
-    debugLog('All events completed');
+    debugLog('nextEvent: all events completed');
     endRun(true);
     return;
   }
   
   if (player.charge <= 0) {
-    debugLog('Charge depleted');
+    debugLog('nextEvent: charge depleted');
     endRun(false);
     return;
   }
+
+  // Seed RNG
+  const seed = Date.now() ^ player.level ^ (player.wisdom % 100) ^ currentEventIdx;
+  const rng = mulberry32(seed);
   
-  // Берем случайное событие
-  const availableEvents = eventsDB.filter(e => !e.minLevel || e.minLevel <= player.level);
+  // Фильтр событий по уровню
+  const pool = eventsDB.filter(e => !e.minLevel || e.minLevel <= player.level);
   
-  if (availableEvents.length === 0) {
-    window.screenLog('⚠️ Нет доступных событий для вашего уровня');
-    debugLog('No events available');
+  if (pool.length === 0) {
+    debugLog('nextEvent: no events in pool');
+    screenLog('⚠️ Нет доступных событий');
     endRun(true);
     return;
   }
   
-  const event = availableEvents[Math.floor(Math.random() * availableEvents.length)];
-  displayEvent(event);
+  const evt = pool[Math.floor(rng() * pool.length)];
+  displayEvent(evt);
 }
 
-/** 
- * Показ события
- * @param {Object} event 
- */
-function displayEvent(event) {
-  debugLog(`displayEvent: ${event.ID || 'unknown'}`);
+/** Отрисовка события */
+function displayEvent(evt) {
+  debugLog(`displayEvent: ${evt.ID}`);
   
-  window.clearChoices();
+  const screenLog = window.screenLog;
+  const clearChoices = window.clearChoices;
+  const createChoice = window.createChoice;
+  const updateStatsUI = window.updateStatsUI;
   
-  window.screenLog(`\n[СОБЫТИЕ ${currentEventIdx + 1}/${eventsCount}]`);
-  window.screenLog(event.Text || event.text || 'Неизвестное событие');
-  window.screenLog('');
+  clearChoices();
+  
+  screenLog(`\n[СОБЫТИЕ ${currentEventIdx + 1}/${eventsCount}]`);
+  screenLog(evt.Text || evt.text || 'Неизвестное событие');
+  screenLog('');
+  
+  // Лор
+  if (evt.loreFragment) {
+    addLore(evt.loreFragment, evt.minLevel || 0);
+  }
+
+  // Множитель режима
+  const mult = runMode === 'safe' ? 0.8 : runMode === 'deep' ? 1.5 : 1.0;
   
   // Выбор 1
-  const c1Label = event.Choice1 || event.choice1 || 'Выбор 1';
+  const c1Label = evt.Choice1 || evt.choice1 || 'Выбор 1';
   const c1Deltas = {
-    charge: event.C1_dCharge || event.c1_dCharge || 0,
-    wisdom: event.C1_dWisdom || event.c1_dWisdom || 0,
-    credits: event.C1_dCredits || event.c1_dCredits || 0
+    c: Math.round((evt.C1_dCharge || evt.c1_dCharge || 0) * mult),
+    w: Math.round((evt.C1_dWisdom || evt.c1_dWisdom || 0) * mult),
+    cr: Math.round((evt.C1_dCredits || evt.c1_dCredits || 0) * mult)
   };
   
   // Выбор 2
-  const c2Label = event.Choice2 || event.choice2 || 'Выбор 2';
+  const c2Label = evt.Choice2 || evt.choice2 || 'Выбор 2';
   const c2Deltas = {
-    charge: event.C2_dCharge || event.c2_dCharge || 0,
-    wisdom: event.C2_dWisdom || event.c2_dWisdom || 0,
-    credits: event.C2_dCredits || event.c2_dCredits || 0
+    c: Math.round((evt.C2_dCharge || evt.c2_dCharge || 0) * mult),
+    w: Math.round((evt.C2_dWisdom || evt.c2_dWisdom || 0) * mult),
+    cr: Math.round((evt.C2_dCredits || evt.c2_dCredits || 0) * mult)
   };
+
+  createChoice(c1Label, () => applyChoice(c1Deltas));
+  createChoice(c2Label, () => applyChoice(c2Deltas));
   
-  // Применяем множитель режима
-  const mult = runMode === 'deep' ? 1.5 : runMode === 'safe' ? 0.8 : 1.0;
-  
-  window.createChoice(`${c1Label}`, () => {
-    applyChoice(c1Deltas, mult);
-  });
-  
-  window.createChoice(`${c2Label}`, () => {
-    applyChoice(c2Deltas, mult);
-  });
-  
-  debugLog(`Event displayed with choices: ${c1Label}, ${c2Label}`);
+  debugLog(`displayEvent: choices created`);
 }
 
-/** 
- * Применение выбора
- * @param {Object} deltas 
- * @param {number} mult 
- */
-function applyChoice(deltas, mult) {
-  debugLog(`applyChoice: ${JSON.stringify(deltas)} x ${mult}`);
+/** Применение дельт */
+function applyChoice(deltas) {
+  debugLog(`applyChoice: ${JSON.stringify(deltas)}`);
   
-  const dCharge = Math.round(deltas.charge * mult);
-  const dWisdom = Math.round(deltas.wisdom * mult);
-  const dCredits = Math.round(deltas.credits * mult);
+  const screenLog = window.screenLog;
+  const updateStatsUI = window.updateStatsUI;
   
-  const newCharge = player.charge + dCharge;
-  const newWisdom = player.wisdom + dWisdom;
-  const newCredits = player.credits + dCredits;
+  if (!runActive) return;
+  
+  const newCharge = player.charge + deltas.c;
+  const newWisdom = player.wisdom + deltas.w;
+  const newCredits = player.credits + deltas.cr;
   
   updatePlayer({
     charge: newCharge,
@@ -138,58 +151,54 @@ function applyChoice(deltas, mult) {
     credits: newCredits
   });
   
-  window.updateStatsUI();
+  screenLog(`\nРезультат: ${deltas.c > 0 ? '+' : ''}${deltas.c}⚡, ${deltas.w > 0 ? '+' : ''}${deltas.w}🧠, ${deltas.cr > 0 ? '+' : ''}${deltas.cr}💳`);
   
-  window.screenLog(`\nРезультат: ${dCharge > 0 ? '+' : ''}${dCharge}⚡, ${dWisdom > 0 ? '+' : ''}${dWisdom}🧠, ${dCredits > 0 ? '+' : ''}${dCredits}💳`);
-  
-  debugLog(`New stats: charge=${newCharge}, wisdom=${newWisdom}, credits=${newCredits}`);
+  updateStatsUI();
   
   if (newCharge <= 0) {
-    debugLog('Charge <= 0, ending run');
+    debugLog('applyChoice: charge depleted');
     setTimeout(() => endRun(false), 1000);
   } else {
     currentEventIdx++;
-    debugLog(`Moving to event ${currentEventIdx}`);
     setTimeout(() => nextEvent(), 1500);
   }
 }
 
-/** 
- * Конец вылазки
- * @param {boolean} success 
- */
+/** Завершение вылазки */
 function endRun(success) {
   debugLog(`endRun: success=${success}`);
+  
+  const screenLog = window.screenLog;
+  const clearChoices = window.clearChoices;
+  const createChoice = window.createChoice;
+  const updateStatsUI = window.updateStatsUI;
+  
   runActive = false;
   
   if (success) {
-    const xpGain = 50 * (1 + player.wisdom / 100);
-    updatePlayer({ xp: player.xp + xpGain });
-    window.screenLog(`\n✅ ВЫЛАЗКА ЗАВЕРШЕНА`);
-    window.screenLog(`Получено XP: ${Math.floor(xpGain)}`);
+    gainXP(eventsCount);
+    screenLog('\n✅ Вылазка завершена успешно');
   } else {
     const penalty = Math.floor(player.credits * 0.3);
     updatePlayer({ credits: Math.max(0, player.credits - penalty) });
-    window.screenLog(`\n💀 ЗАРЯД ИСЧЕРПАН`, 'error');
-    window.screenLog(`Потеряно кредитов: ${penalty}`, 'error');
+    screenLog(`\n💀 Заряд иссяк. Потеряно ${penalty} кредитов`, 'error');
   }
   
-  window.updateStatsUI();
   saveGame();
-  window.clearChoices();
+  updateStatsUI();
+  clearChoices();
   
-  window.createChoice('⬅️ НАЗАД В МЕНЮ', () => {
-    window.screenLog('\n> BASE');
-    setTimeout(() => window.showScreen('main'), 100);
+  createChoice('⬅️ НАЗАД', () => {
+    if (window.showScreen) {
+      window.showScreen('main');
+    }
   });
-  
-  debugLog(`Run ended. Final stats: ${JSON.stringify(player)}`);
 }
 
-/** Очистка состояния вылазки */
+/** Очистка состояния */
 export function clearRun() {
   runActive = false;
   currentEventIdx = 0;
-  debugLog('Run cleared');
+  debugLog('clearRun');
 }
 
