@@ -1,6 +1,6 @@
 /** @type {Object} */
 let player = { charge: 100, wisdom: 0, credits: 0, level: 1, xp: 0, cls: 'hacker' };
-let debugMode = false;
+let debugMode = true;
 
 /** @param {string} msg */
 export function debugLog(msg) {
