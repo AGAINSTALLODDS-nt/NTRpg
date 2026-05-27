@@ -20,10 +20,9 @@ let player = {
   maxCharge: 100
 };
 
-let debugMode = true;
+let debugMode = false;
 
 /**
- * Простой детерминированный хеш для прототипа
  * @param {string} data
  * @returns {string}
  */
@@ -52,13 +51,11 @@ export function mulberry32(seed) {
 }
 
 /** 
- * Debug логирование
  * @param {string} msg 
+ * @param {string} type - 'info'|'debug'|'error'|'warn'
  */
-export function debugLog(msg) {
-  if (!debugMode) return;
-  
-  const logEl = document.getElementById('terminal-log');
+export function debugLog(msg, type = 'debug') {
+  const logEl = document.getElementById('screen-output');
   if (!logEl) {
     console.log('[DEBUG]', msg);
     return;
@@ -71,24 +68,27 @@ export function debugLog(msg) {
     second: '2-digit' 
   });
   
-  const span = document.createElement('div');
-  span.textContent = `[${time}] ${msg}`;
-  span.style.fontSize = '10px';
-  span.style.marginBottom = '2px';
+  const div = document.createElement('div');
   
-  logEl.insertBefore(span, logEl.firstChild);
-  
-  // Ограничиваем историю
-  while (logEl.childNodes.length > 20) {
-    logEl.removeChild(logEl.lastChild);
+  if (type === 'debug' && !debugMode) {
+    return;
   }
+  
+  const prefix = type === 'error' ? '[ERR]' : type === 'warn' ? '[WARN]' : '[DBG]';
+  div.textContent = `${prefix} ${time} ${msg}`;
+  div.className = 'debug-line';
+  div.style.fontSize = '10px';
+  div.style.marginBottom = '1px';
+  
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
 }
 
-/** Вкл/выкл debug режима */
+/** @returns {boolean} */
 export function toggleDebug() {
   debugMode = !debugMode;
-  const status = debugMode ? 'АКТИВИРОВАН' : 'ОТКЛЮЧЁН';
-  debugLog(`DEBUG режим ${status}`);
+  const status = debugMode ? 'ENABLED' : 'DISABLED';
+  debugLog(`DEBUG MODE ${status}`, 'info');
   return debugMode;
 }
 
@@ -97,7 +97,7 @@ export function isDebugMode() {
   return debugMode;
 }
 
-/** Сохранение в localStorage с проверкой целостности */
+/** @returns {boolean} */
 export function saveGame() {
   try {
     const payload = { 
@@ -106,20 +106,20 @@ export function saveGame() {
     };
     payload.hash = simpleHash(JSON.stringify(payload.data) + payload.ts);
     localStorage.setItem('neuro_terminal_save_v1', JSON.stringify(payload));
-    debugLog('Game saved: ' + JSON.stringify(player));
+    debugLog('GAME SAVED', 'info');
     return true;
   } catch (err) {
-    debugLog('Save error: ' + err.message);
+    debugLog(`SAVE ERROR: ${err.message}`, 'error');
     return false;
   }
 }
 
-/** Загрузка с валидацией */
+/** @returns {boolean} */
 export function loadGame() {
   try {
     const raw = localStorage.getItem('neuro_terminal_save_v1');
     if (!raw) {
-      debugLog('No save found, using defaults');
+      debugLog('NO SAVE FOUND', 'warn');
       return false;
     }
     
@@ -127,21 +127,21 @@ export function loadGame() {
     const expected = simpleHash(JSON.stringify(obj.data) + obj.ts);
     
     if (obj.hash !== expected) {
-      console.warn('⚠️ Целостность сохранения нарушена. Используется резерв.');
-      debugLog('Save integrity check FAILED');
+      console.warn('SAVE INTEGRITY FAILED');
+      debugLog('SAVE CORRUPTED', 'error');
       return false;
     }
     
     player = { ...player, ...obj.data };
-    debugLog('Game loaded: ' + JSON.stringify(player));
+    debugLog('GAME LOADED', 'info');
     return true;
   } catch (err) {
-    debugLog('Load error: ' + err.message);
+    debugLog(`LOAD ERROR: ${err.message}`, 'error');
     return false;
   }
 }
 
-/** Экспорт сохранения */
+/** @returns {boolean} */
 export function exportSave() {
   try {
     const blob = new Blob([JSON.stringify(player, null, 2)], { type: 'application/json' });
@@ -151,51 +151,51 @@ export function exportSave() {
     a.download = `ntrpg_save_${Date.now()}.json`; 
     a.click();
     URL.revokeObjectURL(url);
-    debugLog('Save exported');
+    debugLog('SAVE EXPORTED', 'info');
     return true;
   } catch (err) {
-    debugLog('Export error: ' + err.message);
+    debugLog(`EXPORT ERROR: ${err.message}`, 'error');
     return false;
   }
 }
 
-/** Импорт сохранения */
+/** @param {string} jsonText @returns {boolean} */
 export function importSave(jsonText) {
   try {
     const data = JSON.parse(jsonText);
     if (data.charge !== undefined && data.wisdom !== undefined) {
       player = { ...player, ...data };
       saveGame();
-      debugLog('Save imported: ' + JSON.stringify(player));
+      debugLog('SAVE IMPORTED', 'info');
       return true;
     } else {
       throw new Error('Invalid save format');
     }
   } catch (err) {
-    debugLog('Import error: ' + err.message);
+    debugLog(`IMPORT ERROR: ${err.message}`, 'error');
     return false;
   }
 }
 
 /** 
- * Godmode - установка статов
  * @param {string} stat 
- * @param {number} value 
+ * @param {number} value
+ * @returns {boolean}
  */
 export function godmodeSet(stat, value) {
   const validStats = ['charge', 'wisdom', 'credits', 'level', 'xp', 'maxCharge'];
   if (!validStats.includes(stat)) {
-    debugLog(`Godmode: invalid stat "${stat}"`);
+    debugLog(`INVALID STAT: ${stat}`, 'error');
     return false;
   }
   
   player[stat] = Number(value);
-  debugLog(`Godmode: ${stat} = ${value}`);
+  debugLog(`GODMODE: ${stat.toUpperCase()}=${value}`, 'warn');
   saveGame();
   return true;
 }
 
-/** Godmode - макс все статы */
+/** */
 export function godmodeAll() {
   player.charge = 100;
   player.wisdom = 1000;
@@ -203,7 +203,7 @@ export function godmodeAll() {
   player.level = 50;
   player.xp = 10000;
   player.maxCharge = 200;
-  debugLog('Godmode: ALL STATS MAXED');
+  debugLog('GODMODE: ALL STATS MAXED', 'warn');
   saveGame();
 }
 
@@ -213,12 +213,11 @@ export function getPlayer() {
 }
 
 /** 
- * Обновление игрока (для других модулей)
  * @param {Partial<PlayerStats>} updates 
  */
 export function updatePlayer(updates) {
   player = { ...player, ...updates };
-  debugLog(`Player updated: ${JSON.stringify(updates)}`);
+  debugLog(`STAT UPDATE: ${JSON.stringify(updates)}`);
 }
 
 export { player };
