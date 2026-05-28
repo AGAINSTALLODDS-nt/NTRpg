@@ -7,6 +7,8 @@
  * @property {number} xp
  * @property {string} cls
  * @property {number} maxCharge
+ * @property {string} theme - 'white'|'green'|'amber'
+ * @property {Array<string>} unlockedThemes
  */
 
 /** @type {PlayerStats} */
@@ -17,7 +19,9 @@ let player = {
   level: 1, 
   xp: 0, 
   cls: 'hacker',
-  maxCharge: 100
+  maxCharge: 100,
+  theme: 'white',
+  unlockedThemes: ['white']
 };
 
 let debugMode = false;
@@ -77,8 +81,6 @@ export function debugLog(msg, type = 'debug') {
   const prefix = type === 'error' ? '[ERR]' : type === 'warn' ? '[WARN]' : '[DBG]';
   div.textContent = `${prefix} ${time} ${msg}`;
   div.className = 'debug-line';
-  div.style.fontSize = '10px';
-  div.style.marginBottom = '1px';
   
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
@@ -95,6 +97,59 @@ export function toggleDebug() {
 /** @returns {boolean} */
 export function isDebugMode() {
   return debugMode;
+}
+
+/** 
+ * Разблокировка темы
+ * @param {string} themeName 
+ */
+export function unlockTheme(themeName) {
+  const validThemes = ['white', 'green', 'amber'];
+  if (!validThemes.includes(themeName)) {
+    debugLog(`INVALID THEME: ${themeName}`, 'error');
+    return false;
+  }
+  
+  if (!player.unlockedThemes.includes(themeName)) {
+    player.unlockedThemes.push(themeName);
+    debugLog(`THEME UNLOCKED: ${themeName.toUpperCase()}`, 'info');
+    return true;
+  }
+  return false;
+}
+
+/** 
+ * Смена темы
+ * @param {string} themeName 
+ */
+export function setTheme(themeName) {
+  if (!player.unlockedThemes.includes(themeName)) {
+    debugLog(`THEME NOT UNLOCKED: ${themeName}`, 'warn');
+    return false;
+  }
+  
+  player.theme = themeName;
+  
+  // Применяем к DOM
+  const body = document.body;
+  body.removeAttribute('data-theme');
+  if (themeName !== 'white') {
+    body.setAttribute('data-theme', themeName);
+  }
+  
+  debugLog(`THEME SET: ${themeName.toUpperCase()}`, 'info');
+  saveGame();
+  return true;
+}
+
+/** @returns {string} */
+export function getCurrentTheme() {
+  return player.theme;
+}
+
+/** @returns {Array<string>} */
+export function getUnlockedThemes() {
+  return player.unlockedThemes;
 }
 
 /** @returns {boolean} */
@@ -133,6 +188,14 @@ export function loadGame() {
     }
     
     player = { ...player, ...obj.data };
+    
+    // Применяем тему
+    const body = document.body;
+    body.removeAttribute('data-theme');
+    if (player.theme !== 'white') {
+      body.setAttribute('data-theme', player.theme);
+    }
+    
     debugLog('GAME LOADED', 'info');
     return true;
   } catch (err) {
@@ -165,6 +228,14 @@ export function importSave(jsonText) {
     const data = JSON.parse(jsonText);
     if (data.charge !== undefined && data.wisdom !== undefined) {
       player = { ...player, ...data };
+      
+      // Применяем тему
+      const body = document.body;
+      body.removeAttribute('data-theme');
+      if (player.theme !== 'white') {
+        body.setAttribute('data-theme', player.theme);
+      }
+      
       saveGame();
       debugLog('SAVE IMPORTED', 'info');
       return true;
@@ -203,6 +274,8 @@ export function godmodeAll() {
   player.level = 50;
   player.xp = 10000;
   player.maxCharge = 200;
+  player.unlockedThemes = ['white', 'green', 'amber'];
+  player.theme = 'white';
   debugLog('GODMODE: ALL STATS MAXED', 'warn');
   saveGame();
 }
