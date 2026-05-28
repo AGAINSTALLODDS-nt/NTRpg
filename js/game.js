@@ -33,18 +33,19 @@ export function startRun(mode) {
   const createChoice = window.createChoice;
   
   if (!screenLog || !clearChoices || !createChoice) {
-    debugLog('startRun: UI functions not ready');
+    debugLog('startRun: UI functions not ready', 'error');
     return;
   }
   
-  screenLog(`\n🟢 ВЫЛАЗКА: ${mode.toUpperCase()}`);
-  screenLog(`Событий: ${eventsCount}`);
+  screenLog('=== RUN STARTED ===', 'info');
+  screenLog(`MODE: ${mode.toUpperCase()}`);
+  screenLog(`EVENTS: ${eventsCount}`);
   screenLog('');
   
   setTimeout(() => nextEvent(), 500);
 }
 
-/** Генерация и показ следующего события */
+/** */
 export function nextEvent() {
   debugLog(`nextEvent: idx=${currentEventIdx}/${eventsCount}, active=${runActive}`);
   
@@ -78,7 +79,7 @@ export function nextEvent() {
   
   if (pool.length === 0) {
     debugLog('nextEvent: no events in pool');
-    screenLog('⚠️ Нет доступных событий');
+    screenLog('NO EVENTS AVAILABLE FOR YOUR LEVEL', 'warn');
     endRun(true);
     return;
   }
@@ -87,7 +88,10 @@ export function nextEvent() {
   displayEvent(evt);
 }
 
-/** Отрисовка события */
+/** 
+ * Отрисовка события С ПОКАЗОМ ДЕЛЬТ
+ * @param {Object} evt 
+ */
 function displayEvent(evt) {
   debugLog(`displayEvent: ${evt.ID}`);
   
@@ -98,11 +102,11 @@ function displayEvent(evt) {
   
   clearChoices();
   
-  screenLog(`\n[СОБЫТИЕ ${currentEventIdx + 1}/${eventsCount}]`);
-  screenLog(evt.Text || evt.text || 'Неизвестное событие');
+  screenLog(`\n[EVENT ${currentEventIdx + 1}/${eventsCount}]`);
+  screenLog(evt.Text || evt.text || 'Unknown event');
   screenLog('');
   
-  // Лор
+  // Разблокировка лора
   if (evt.loreFragment) {
     addLore(evt.loreFragment, evt.minLevel || 0);
   }
@@ -111,39 +115,43 @@ function displayEvent(evt) {
   const mult = runMode === 'safe' ? 0.8 : runMode === 'deep' ? 1.5 : 1.0;
   
   // Выбор 1
-  const c1Label = evt.Choice1 || evt.choice1 || 'Выбор 1';
+  const c1Label = evt.Choice1 || evt.choice1 || 'Choice 1';
   const c1Deltas = {
-    c: Math.round((evt.C1_dCharge || evt.c1_dCharge || 0) * mult),
-    w: Math.round((evt.C1_dWisdom || evt.c1_dWisdom || 0) * mult),
-    cr: Math.round((evt.C1_dCredits || evt.c1_dCredits || 0) * mult)
+    chg: Math.round((evt.C1_dCharge || evt.c1_dCharge || 0) * mult),
+    wis: Math.round((evt.C1_dWisdom || evt.c1_dWisdom || 0) * mult),
+    crd: Math.round((evt.C1_dCredits || evt.c1_dCredits || 0) * mult)
   };
   
   // Выбор 2
-  const c2Label = evt.Choice2 || evt.choice2 || 'Выбор 2';
+  const c2Label = evt.Choice2 || evt.choice2 || 'Choice 2';
   const c2Deltas = {
-    c: Math.round((evt.C2_dCharge || evt.c2_dCharge || 0) * mult),
-    w: Math.round((evt.C2_dWisdom || evt.c2_dWisdom || 0) * mult),
-    cr: Math.round((evt.C2_dCredits || evt.c2_dCredits || 0) * mult)
+    chg: Math.round((evt.C2_dCharge || evt.c2_dCharge || 0) * mult),
+    wis: Math.round((evt.C2_dWisdom || evt.c2_dWisdom || 0) * mult),
+    crd: Math.round((evt.C2_dCredits || evt.c2_dCredits || 0) * mult)
   };
 
-  createChoice(c1Label, () => applyChoice(c1Deltas));
-  createChoice(c2Label, () => applyChoice(c2Deltas));
+  // Создаём кнопки с дельтами
+  createChoice(c1Label, () => applyChoice(c1Deltas), c1Deltas);
+  createChoice(c2Label, () => applyChoice(c2Deltas), c2Deltas);
   
-  debugLog(`displayEvent: choices created`);
+  debugLog(`displayEvent: choices created with deltas`);
 }
 
-/** Применение дельт */
+/** 
+ * Применение выбора
+ * @param {Object} deltas - {chg, wis, crd}
+ */
 function applyChoice(deltas) {
-  debugLog(`applyChoice: ${JSON.stringify(deltas)}`);
+  debugLog(`applyChoice: CHG=${deltas.chg}, WIS=${deltas.wis}, CRD=${deltas.crd}`);
   
   const screenLog = window.screenLog;
   const updateStatsUI = window.updateStatsUI;
   
   if (!runActive) return;
   
-  const newCharge = player.charge + deltas.c;
-  const newWisdom = player.wisdom + deltas.w;
-  const newCredits = player.credits + deltas.cr;
+  const newCharge = player.charge + deltas.chg;
+  const newWisdom = player.wisdom + deltas.wis;
+  const newCredits = player.credits + deltas.crd;
   
   updatePlayer({
     charge: newCharge,
@@ -151,7 +159,9 @@ function applyChoice(deltas) {
     credits: newCredits
   });
   
-  screenLog(`\nРезультат: ${deltas.c > 0 ? '+' : ''}${deltas.c}⚡, ${deltas.w > 0 ? '+' : ''}${deltas.w}🧠, ${deltas.cr > 0 ? '+' : ''}${deltas.cr}💳`);
+  // Показываем результат
+  screenLog('');
+  screenLog(`RESULT: CHG ${deltas.chg >= 0 ? '+' : ''}${deltas.chg}, WIS ${deltas.wis >= 0 ? '+' : ''}${deltas.wis}, CRD ${deltas.crd >= 0 ? '+' : ''}${deltas.crd}`, 'info');
   
   updateStatsUI();
   
@@ -164,7 +174,10 @@ function applyChoice(deltas) {
   }
 }
 
-/** Завершение вылазки */
+/** 
+ * Завершение вылазки
+ * @param {boolean} success 
+ */
 function endRun(success) {
   debugLog(`endRun: success=${success}`);
   
@@ -177,18 +190,21 @@ function endRun(success) {
   
   if (success) {
     gainXP(eventsCount);
-    screenLog('\n✅ Вылазка завершена успешно');
+    screenLog('\n=== RUN COMPLETED ===', 'info');
+    screenLog('STATUS: SUCCESS', 'info');
   } else {
     const penalty = Math.floor(player.credits * 0.3);
     updatePlayer({ credits: Math.max(0, player.credits - penalty) });
-    screenLog(`\n💀 Заряд иссяк. Потеряно ${penalty} кредитов`, 'error');
+    screenLog('\n=== RUN FAILED ===', 'error');
+    screenLog(`CHARGE DEPLETED`, 'error');
+    screenLog(`PENALTY: -${penalty} CRD`, 'error');
   }
   
   saveGame();
   updateStatsUI();
   clearChoices();
   
-  createChoice('⬅️ НАЗАД', () => {
+  createChoice('[BACK] RETURN TO MAIN', () => {
     if (window.showScreen) {
       window.showScreen('main');
     }
