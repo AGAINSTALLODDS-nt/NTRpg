@@ -9,7 +9,11 @@ import {
   isDebugMode,
   godmodeSet,
   godmodeAll,
-  updatePlayer 
+  updatePlayer,
+  unlockTheme,
+  setTheme,
+  getCurrentTheme,
+  getUnlockedThemes
 } from './utils.js';
 import { loadCSV } from './loader.js';
 import { buyUpgrade } from './progression.js';
@@ -144,6 +148,17 @@ function setupInput() {
 }
 
 /** 
+ * Форматирует дельты для отображения
+ * @param {number} delta 
+ * @param {string} stat - 'CHG'|'WIS'|'CRD'
+ */
+function formatDelta(delta, stat) {
+  if (delta === 0) return `${stat}:0`;
+  const sign = delta > 0 ? '+' : '';
+  return `${sign}${delta} ${stat}`;
+}
+
+/** 
  * @param {string} cmd 
  */
 function processCommand(cmd) {
@@ -261,7 +276,7 @@ function processCommand(cmd) {
 }
 
 /** 
- * @param {'run_menu'|'base'|'lore'|'main'} type 
+ * @param {'run_menu'|'base'|'lore'|'main'|'themes'} type 
  */
 function showScreen(type) {
   debugLog(`SCREEN: ${type}`);
@@ -318,7 +333,27 @@ function showScreen(type) {
         showScreen('base');
       });
       
+      createChoice('[THEMES] CHANGE THEME', () => showScreen('themes'));
       createChoice('[BACK] RETURN TO MAIN', () => showScreen('main'));
+      break;
+      
+    case 'themes':
+      screenLog('=== THEME SELECT ===', 'info');
+      screenLog(`CURRENT: ${player.theme.toUpperCase()}`);
+      screenLog('');
+      
+      const themes = getUnlockedThemes();
+      themes.forEach(theme => {
+        const isCurrent = theme === player.theme;
+        createChoice(`[${theme.toUpperCase()}] ${isCurrent ? 'ACTIVE' : 'SELECT'}`, () => {
+          if (setTheme(theme)) {
+            updateStatsUI();
+            showScreen('themes');
+          }
+        });
+      });
+      
+      createChoice('[BACK] RETURN TO BASE', () => showScreen('base'));
       break;
       
     case 'lore':
@@ -364,8 +399,7 @@ function screenLog(text, type = 'info') {
   } else if (type === 'warn') {
     div.className = 'warn';
   } else if (type === 'info') {
-    div.style.color = '#00ff41';
-    div.style.fontWeight = 'bold';
+    div.className = 'info';
   }
   
   output.appendChild(div);
@@ -384,8 +418,9 @@ function clearChoices() {
 /** 
  * @param {string} label 
  * @param {() => void} onClick 
+ * @param {Object} [deltas] - {chg, wis, crd}
  */
-function createChoice(label, onClick) {
+function createChoice(label, onClick, deltas = null) {
   if (!choices) {
     debugLog('ERROR: CHOICES CONTAINER NOT FOUND', 'error');
     return;
@@ -393,7 +428,33 @@ function createChoice(label, onClick) {
   
   const btn = document.createElement('button');
   btn.className = 'choice-btn';
-  btn.textContent = label;
+  
+  const labelSpan = document.createElement('span');
+  labelSpan.textContent = label;
+  btn.appendChild(labelSpan);
+  
+  if (deltas) {
+    const deltasDiv = document.createElement('div');
+    deltasDiv.className = 'choice-deltas';
+    
+    const parts = [];
+    if (deltas.chg !== undefined) {
+      const chgClass = deltas.chg >= 0 ? 'delta-positive' : 'delta-negative';
+      parts.push(`<span class="${chgClass}">${formatDelta(deltas.chg, 'CHG')}</span>`);
+    }
+    if (deltas.wis !== undefined) {
+      const wisClass = deltas.wis >= 0 ? 'delta-positive' : 'delta-negative';
+      parts.push(`<span class="${wisClass}">${formatDelta(deltas.wis, 'WIS')}</span>`);
+    }
+    if (deltas.crd !== undefined) {
+      const crdClass = deltas.crd >= 0 ? 'delta-positive' : 'delta-negative';
+      parts.push(`<span class="${crdClass}">${formatDelta(deltas.crd, 'CRD')}</span>`);
+    }
+    
+    deltasDiv.innerHTML = parts.join(' | ');
+    btn.appendChild(deltasDiv);
+  }
+  
   btn.tabIndex = 0;
   
   btn.addEventListener('click', (e) => {
