@@ -17,67 +17,45 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; outline: none; }
     body { background: var(--bg); color: var(--text); font-family: var(--font); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-
-    /* LAYOUT */
-    #app { flex: 1; display: flex; flex-direction: column; padding: 1rem; overflow: hidden; position: relative; }
+    #app { flex: 1; display: flex; flex-direction: column; padding: 1rem; overflow: hidden; }
     .screen { display: none; flex: 1; flex-direction: column; background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); padding: 1rem; margin-bottom: 1rem; overflow: hidden; }
     .screen.active { display: flex; animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-    
-    /* DESKTOP */
     #desktop { justify-content: center; align-items: center; gap: 1.5rem; }
     .icon { width: 140px; height: 100px; background: var(--surface); border: 1px solid #e1e8ed; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow); }
     .icon:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,123,255,0.15); }
     .icon-label { margin-top: 0.5rem; font-size: 0.9rem; font-weight: 500; color: var(--text-dim); }
     .icon-title { font-weight: bold; color: var(--accent); font-size: 1.1rem; }
-
-    /* GRID */
     #grid-stats { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 600; color: var(--text-dim); padding: 0.5rem; background: #f8f9fa; border-radius: 8px; }
     #grid-wrapper { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 0.5rem; }
     #grid-container { display: grid; gap: 3px; user-select: none; background: #e9ecef; padding: 3px; border-radius: 4px; }
     .cell { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; border-radius: 4px; transition: all 0.15s; background: var(--surface); }
-    
-    /* Cell Types */
     .cell.path { border: 1px solid #dee2e6; color: #adb5bd; }
     .cell.wall { background: var(--wall); border: 1px solid #ced4da; cursor: not-allowed; color: #ced4da; }
     .cell.visited { background: var(--visited); border-color: var(--accent); }
     .cell.current { background: var(--accent); color: white; box-shadow: 0 0 10px rgba(0,123,255,0.4); transform: scale(1.1); z-index: 2; }
     .cell.exit { border: 2px solid var(--success); color: var(--success); background: #f0fdf4; }
-    
-    /* Fog & Visibility */
     .cell.fog { background: var(--fog); border: none; pointer-events: none; }
-    .cell.hidden-content { color: #dee2e6; } /* Скрытый контент */
-    
-    /* Indicators */
     .type-energy { color: var(--accent); background: #e6f0ff; }
     .type-drain { color: var(--danger); background: #ffe8e9; }
     .type-trap { color: var(--danger); background: #ffe8e9; }
     .type-lore { color: var(--lore); background: #e0f7fa; font-weight: bold; }
     .type-bypass { color: var(--success); background: #e0f2e9; }
-
-    /* CONTROLS */
     .controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; max-width: 200px; margin-left: auto; margin-right: auto; }
     .btn { background: var(--surface); border: 1px solid #dee2e6; color: var(--text); padding: 0.6rem; border-radius: 6px; cursor: pointer; font-family: var(--font); font-weight: 500; transition: 0.2s; text-align: center; }
     .btn:active { background: var(--accent); color: white; border-color: var(--accent); transform: scale(0.95); }
     .btn.abort { border-color: var(--danger); color: var(--danger); }
     .btn.abort:active { background: var(--danger); color: white; }
-    
-    /* LORE/UPGRADES */
     #lore-panel h3 { margin-bottom: 1rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; display: inline-block; }
     .slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; margin-top: 1rem; }
     .slot { border: 1px dashed #dee2e6; padding: 0.8rem; min-height: 70px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 0.8rem; border-radius: 8px; background: #f8f9fa; color: var(--text-dim); transition: 0.2s; }
     .slot.filled { border-style: solid; border-color: var(--accent); background: #e6f0ff; color: var(--accent); font-weight: bold; }
-    
     .fragment-list { max-height: 200px; overflow-y: auto; margin-top: 1rem; border: 1px solid #e1e8ed; border-radius: 8px; padding: 0.5rem; }
     .fragment-item { padding: 0.6rem; border-bottom: 1px solid #f1f3f5; cursor: pointer; display: flex; justify-content: space-between; }
     .fragment-item:hover { background: var(--surface); color: var(--accent); }
     .tag { font-size: 0.7rem; background: #e9ecef; padding: 2px 6px; border-radius: 4px; }
-
-    /* LOG */
     #terminal { height: 80px; background: var(--surface); border-top: 1px solid #e1e8ed; padding: 0.5rem; overflow-y: auto; font-size: 0.75rem; font-family: monospace; color: var(--text-dim); border-radius: 0 0 12px 12px; }
     .log { margin-bottom: 2px; } .log.info { color: var(--accent); } .log.warn { color: var(--danger); }
-
-    /* MODAL */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; z-index: 100; }
     .modal { background: var(--surface); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 1.5rem; max-width: 90vw; width: 320px; text-align: center; }
     .modal h3 { color: var(--accent); margin-bottom: 0.5rem; }
@@ -87,37 +65,20 @@
 </head>
 <body>
   <div id="app">
-    <!-- DESKTOP -->
     <div id="desktop" class="screen active">
-      <h2 style="margin-bottom: 1rem; color: var(--text-dim); font-size: 0.8rem; letter-spacing: 1px;">SYSTEM OS v3.0</h2>
-      <div class="icon" onclick="App.launchDecode()">
-        <div class="icon-title">DECODE</div>
-        <div class="icon-label">Launch Archive</div>
-      </div>
-      <div class="icon" onclick="App.openLore()">
-        <div class="icon-title">UPGRADES</div>
-        <div class="icon-label">Slot Manager</div>
-      </div>
-      <div class="icon" onclick="App.importSave()">
-        <div class="icon-title">LOAD</div>
-        <div class="icon-label">Import Data</div>
-      </div>
-      <div class="icon" onclick="App.exportSave()">
-        <div class="icon-title">SAVE</div>
-        <div class="icon-label">Export Data</div>
-      </div>
+      <h2 style="margin-bottom: 1rem; color: var(--text-dim); font-size: 0.8rem; letter-spacing: 1px;">SYSTEM OS v3.1</h2>
+      <div class="icon" onclick="App.launchDecode()"><div class="icon-title">DECODE</div><div class="icon-label">Launch Archive</div></div>
+      <div class="icon" onclick="App.openLore()"><div class="icon-title">UPGRADES</div><div class="icon-label">Slot Manager</div></div>
+      <div class="icon" onclick="App.importSave()"><div class="icon-title">LOAD</div><div class="icon-label">Import Data</div></div>
+      <div class="icon" onclick="App.exportSave()"><div class="icon-title">SAVE</div><div class="icon-label">Export Data</div></div>
     </div>
-
-    <!-- GRID RUN -->
     <div id="grid-screen" class="screen">
       <div id="grid-stats">
         <span>LVL <span id="ui-lvl" style="color:var(--text)">1</span></span>
         <span>⚡ <span id="ui-energy" style="color:var(--accent)">50</span></span>
         <span>📁 <span id="ui-lore" style="color:var(--lore)">0</span></span>
       </div>
-      <div id="grid-wrapper">
-        <div id="grid-container"></div>
-      </div>
+      <div id="grid-wrapper"><div id="grid-container"></div></div>
       <div class="controls">
         <div></div><button class="btn" onclick="App.move(0, -1)">▲</button><div></div>
         <button class="btn" onclick="App.move(-1, 0)">◀</button>
@@ -126,8 +87,6 @@
         <div></div><button class="btn" onclick="App.move(0, 1)">▼</button><div></div>
       </div>
     </div>
-
-    <!-- LORE/UPGRADES -->
     <div id="lore-screen" class="screen">
       <h3>MODULE CONFIG</h3>
       <div class="slot-grid" id="slot-container"></div>
@@ -136,9 +95,7 @@
       <button class="btn" onclick="App.returnToDesktop()" style="margin-top: 1rem; width: 100%;">BACK TO DESKTOP</button>
     </div>
   </div>
-
   <div id="terminal"></div>
-
   <div class="modal-overlay" id="modal">
     <div class="modal">
       <h3 id="modal-title">DATA FRAGMENT</h3>
@@ -148,11 +105,8 @@
   </div>
 
 <script>
-// Utils
 const Utils = {
-  mulberry32(a) {
-    return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-  },
+  mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; },
   hash(data) { try { return btoa(JSON.stringify(data) + "ARCHIVE_SALT_v3"); } catch(e) { return ""; } },
   bfs(grid, start, end, size) {
     const q = [start], visited = new Set([`${start.x},${start.y}`]);
@@ -167,17 +121,13 @@ const Utils = {
   },
   log(msg, type='sys') {
     const term = document.getElementById('terminal');
-    const div = document.createElement('div');
-    div.className = `log ${type}`;
-    div.textContent = `> ${msg}`;
-    term.appendChild(div);
-    term.scrollTop = term.scrollHeight;
+    const div = document.createElement('div'); div.className = `log ${type}`; div.textContent = `> ${msg}`;
+    term.appendChild(div); term.scrollTop = term.scrollHeight;
   }
 };
 
-// State Management
 const State = {
-  data: { level: 1, xp: 0, energy: 50, cap: 50, fragments: [], upgrades: [null, null, null], lastTick: Date.now(), inRun: false },
+  data: { level: 1, xp: 0, energy: 50, cap: 50, fragments: [], upgrades: [null, null, null], lastTick: Date.now(), runsCleared: 0 },
   run: { grid: [], size: 4, px: 0, py: 0, exitX: 0, exitY: 0, visited: new Set(), fog: new Set() },
   save(key='archive_save_v3') {
     const raw = { data: this.data, ts: Date.now() };
@@ -192,56 +142,46 @@ const State = {
   }
 };
 
-// Idle Logic
 const Idle = {
   calc() {
     const elapsed = (Date.now() - State.data.lastTick) / 1000;
-    if(elapsed < 10) return; // Не считаем слишком короткие простои
-    const regen = Math.floor(elapsed / 30) + (State.data.upgrades.filter(u=>u==='IDLE_BOOST').length * 0.5);
-    State.data.energy = Math.min(State.data.cap, State.data.energy + Math.floor(regen));
+    if(elapsed < 5) return;
+    const baseRate = 0.05; // 1 / 20s
+    const boostRate = State.data.upgrades.includes('IDLE_BOOST') ? 1 : 0; // +1 / sec
+    const regen = Math.floor(elapsed * (baseRate + boostRate));
+    State.data.energy = Math.min(State.data.cap, State.data.energy + regen);
     State.data.lastTick = Date.now();
-    Utils.log(`IDLE SYNC: +${Math.floor(regen)} Energy`);
+    if(regen > 0) Utils.log(`IDLE SYNC: +${regen} Energy`, "info");
   }
 };
 
-// Grid System
 const Grid = {
   generate() {
     const lvl = State.data.level;
-    State.run.size = Math.min(16, 4 + Math.floor(lvl/2)*2); // Уменьшил макс для теста, потом 32
+    State.run.size = Math.min(16, 4 + Math.floor(lvl/2)*2);
     const sz = State.run.size;
     const cells = Array(sz*sz).fill('path');
     const rng = Utils.mulberry32(Date.now() ^ lvl);
     const wallChance = 0.15 + (lvl*0.03);
-    
-    // Стены
     for(let i=0; i<sz*sz; i++) if(rng() < wallChance) cells[i] = 'wall';
-    
-    // Спавн и Выход
     State.run.px = 0; State.run.py = 0;
     State.run.exitX = sz-1; State.run.exitY = sz-1;
     cells[0] = 'spawn'; cells[sz*sz-1] = 'exit';
-    
-    // Гарантия пути
     while(!Utils.bfs(cells, {x:0,y:0}, {x:sz-1,y:sz-1}, sz)) {
       const idx = Math.floor(rng()*cells.length);
       if(cells[idx]==='wall') cells[idx] = 'path';
     }
-    
-    // Типы ячеек
     const types = ['path','energy','drain','lore','trap','bypass'];
     for(let y=0; y<sz; y++) for(let x=0; x<sz; x++) {
       const i = y*sz + x;
       if(['wall','spawn','exit'].includes(cells[i])) continue;
-      
-      // Веса с учетом сложности
       let r = rng();
-      if(r < wallChance + 0.15) cells[i] = 'path';
-      else if(r < 0.4 - lvl*0.01) cells[i] = 'energy';
-      else if(r < 0.5 + lvl*0.02) cells[i] = 'drain';
-      else if(r < 0.6) cells[i] = 'lore';
+      if(r < 0.3 - lvl*0.015) cells[i] = 'energy'; // 30% base, slowly decreases
+      else if(r < 0.45 + lvl*0.02) cells[i] = 'drain';
+      else if(r < 0.55) cells[i] = 'lore';
       else if(r < 0.7 + lvl*0.03) cells[i] = 'trap';
-      else cells[i] = 'bypass';
+      else if(r < 0.75) cells[i] = 'bypass';
+      else cells[i] = 'path';
     }
     State.run.grid = cells;
     State.run.visited = new Set(["0,0"]);
@@ -257,39 +197,27 @@ const Grid = {
         if(nx>=0 && nx<size && ny>=0 && ny<size) State.run.fog.add(`${nx},${ny}`);
       }
     };
-    add(px, py); // Текущая + радиус
-    visited.forEach(k => { const [x,y] = k.split(',').map(Number); add(x,y); });
+    add(px, py); visited.forEach(k => { const [x,y] = k.split(',').map(Number); add(x,y); });
   },
   render() {
     const cont = document.getElementById('grid-container');
     cont.innerHTML = '';
     cont.style.gridTemplateColumns = `repeat(${State.run.size}, 32px)`;
-    
     for(let y=0; y<State.run.size; y++) {
       for(let x=0; x<State.run.size; x++) {
         const key = `${x},${y}`;
-        const el = document.createElement('div');
-        el.className = 'cell';
+        const el = document.createElement('div'); el.className = 'cell';
         const type = State.run.grid[y*State.run.size+x];
-        
-        // Логика видимости
         if(State.run.fog.has(key)) {
-          // Если видно: рисуем тип
           if(x===State.run.px && y===State.run.py) el.classList.add('current');
           else if(type==='exit') el.classList.add('exit');
           else if(type==='wall') el.classList.add('wall');
           else if(State.run.visited.has(key)) el.classList.add('visited');
-          
-          // Отображение контента (даже если не visited, но в тумане нет - значит скрыт)
-          if(type!=='wall' && type!=='spawn' && type!=='path' && !(x===State.run.px && y===State.run.py)) {
+          if(!['wall','spawn','exit','path'].includes(type) && !(x===State.run.px && y===State.run.py)) {
             el.classList.add(`type-${type}`);
-            // Иконки
-            const icons = { energy:'⚡', drain:'📉', lore:'🔍', trap:'💣', bypass:'⏩' };
-            el.textContent = icons[type] || '?';
+            el.textContent = { energy:'⚡', drain:'📉', lore:'🔍', trap:'💣', bypass:'⏩' }[type] || '?';
           }
-        } else {
-          el.classList.add('fog');
-        }
+        } else { el.classList.add('fog'); }
         cont.appendChild(el);
       }
     }
@@ -297,38 +225,28 @@ const Grid = {
   }
 };
 
-// Movement
 const Movement = {
   step(dx, dy) {
-    if(State.data.energy <= 0 && State.data.upgrades.includes('ENERGY_REFUND')===false) {
-      Utils.log("NO ENERGY. ABORT OR WAIT.", "warn"); return;
-    }
+    if(State.data.energy <= 0) { Utils.log("NO ENERGY. ABORT OR WAIT.", "warn"); return; }
     const nx = State.run.px + dx, ny = State.run.py + dy;
     if(nx<0||nx>=State.run.size||ny<0||ny>=State.run.size) return;
     const key = `${nx},${ny}`;
     const cell = State.run.grid[ny*State.run.size+nx];
     if(cell==='wall') return;
-    
-    // QoL: Энергия тратится только на НОВЫЕ ячейки
-    if(!State.run.visited.has(key)) {
-       State.data.energy -= 1;
-    }
-
+    if(!State.run.visited.has(key)) State.data.energy -= 1;
     State.run.px = nx; State.run.py = ny;
     State.run.visited.add(key);
     Grid.updateFog();
-    
-    // Эффект ячейки только первый раз (или каждый раз? По логике idle - лучше один раз или редко)
-    // Для аддиктивности лучше: бонусы каждый раз, штрафы - каждый раз?
-    // Сделаем: Energy ячейки дают всегда, Trap/Drain тоже срабатывают (риск).
     this.applyCell(cell);
     Grid.render();
-    
     if(nx===State.run.exitX && ny===State.run.exitY) this.win();
   },
   applyCell(type) {
     switch(type) {
-      case 'energy': State.data.energy = Math.min(State.data.cap, State.data.energy + 3); Utils.log(`+3 Energy`, "info"); break;
+      case 'energy': 
+        const gain = 3 + Math.floor(State.data.level/3);
+        State.data.energy = Math.min(State.data.cap, State.data.energy + gain); 
+        Utils.log(`+${gain} Energy`, "info"); break;
       case 'drain': State.data.energy -= 3; Utils.log(`-3 Energy (Drain)`, "warn"); break;
       case 'trap': if(Math.random()>0.4) { State.data.energy -= 2; Utils.log(`TRAP! -2`, "warn"); } break;
       case 'lore': Lore.drop(); break;
@@ -338,43 +256,54 @@ const Movement = {
   },
   win() {
     State.data.inRun = false;
+    State.data.runsCleared++;
     const xp = 50 + State.data.level * 20;
-    State.data.xp += xp; State.data.level = Math.floor(State.data.xp / 150) + 1;
+    const energyReward = 15 + State.data.level * 4; // Баланс-патч
+    State.data.xp += xp; 
+    State.data.level = Math.floor(State.data.xp / 150) + 1;
     State.data.cap = 50 + State.data.level * 10;
-    Utils.log(`ARCHIVE DECODED. +${xp}XP`, "info");
+    State.data.energy = Math.min(State.data.cap, State.data.energy + energyReward);
+    Utils.log(`ARCHIVE DECODED. +${xp}XP | +${energyReward}⚡`, "info");
     App.returnToDesktop();
   }
 };
 
-// Lore & Upgrades
 const Lore = {
   fragments: [
-    {id:'f1', name:'Legacy Protocol', effect:'IDLE_BOOST'},
-    {id:'f2', name:'Neural Bridge', effect:'STEP_PASS'}, // Игнор стен (пока заглушка)
-    {id:'f3', name:'Data Leech', effect:'ENERGY_SIPHON'} // Больше энергии с ячеек
+    {id:'f1', name:'Idle Core v1', effect:'IDLE_BOOST', desc:'+1 Energy/sec'},
+    {id:'f2', name:'Neural Bridge', effect:'STEP_PASS', desc:'Ignores 1 Wall/run'},
+    {id:'f3', name:'Data Leech', effect:'ENERGY_SIPHON', desc:'+1 Energy from cells'}
   ],
   drop() {
-    const frag = this.fragments[Math.floor(Math.random()*this.fragments.length)];
-    if(!State.data.fragments.includes(frag.id)) {
-      State.data.fragments.push(frag.id);
-      UI.showModal(`FRAGMENT FOUND`, `${frag.name}\nType: [${frag.effect}]\nInstall to slot?`, 
-        () => { this.install(frag); }, () => UI.hideModal());
+    // Гарантированный дроп в первом ране, далее 45%+ шанс
+    const chance = State.data.runsCleared === 0 ? 1 : (0.45 + State.data.level * 0.02);
+    if(Math.random() > chance && State.data.runsCleared > 0) return;
+    
+    // Взвешенный выбор: IDLE_BOOST падает чаще, пока не установлен
+    const pool = this.fragments.filter(f => !State.data.fragments.includes(f.id));
+    if(pool.length === 0) return;
+    
+    let target;
+    if(!State.data.fragments.includes('f1') && Math.random() < 0.6) {
+      target = pool.find(f => f.id === 'f1') || pool[0];
+    } else {
+      target = pool[Math.floor(Math.random() * pool.length)];
     }
+    
+    State.data.fragments.push(target.id);
+    UI.showModal(`FRAGMENT FOUND`, `${target.name}\n${target.desc}`, () => { this.install(target); }, () => UI.hideModal());
   },
   install(frag) {
     const emptyIdx = State.data.upgrades.indexOf(null);
     if(emptyIdx > -1) {
       State.data.upgrades[emptyIdx] = frag.effect;
       Utils.log(`INSTALLED: ${frag.name}`, "info");
-    } else {
-      Utils.log("SLOTS FULL", "warn");
-    }
+    } else { Utils.log("SLOTS FULL", "warn"); }
     UI.hideModal();
     UI.renderSlots();
   }
 };
 
-// UI Manager
 const UI = {
   updateStats() {
     document.getElementById('ui-lvl').textContent = State.data.level;
@@ -387,18 +316,17 @@ const UI = {
     State.data.upgrades.forEach((u, i) => {
       const el = document.createElement('div');
       el.className = `slot ${u?'filled':''}`;
-      el.textContent = u || `SLOT ${i+1} [EMPTY]`;
+      el.textContent = u ? (u==='IDLE_BOOST'?'+1⚡/sec':u) : `SLOT ${i+1} [EMPTY]`;
       el.onclick = () => { if(u) { State.data.upgrades[i]=null; UI.renderSlots(); Utils.log(`SLOT ${i+1} CLEARED`); } };
       cont.appendChild(el);
     });
-    
     const list = document.getElementById('fragment-list');
     list.innerHTML = '';
     State.data.fragments.forEach(fid => {
       const f = Lore.fragments.find(x=>x.id===fid);
-      if(!f || State.data.upgrades.includes(f.effect)) return; // Скрыть уже установленные
+      if(!f || State.data.upgrades.includes(f.effect)) return;
       const el = document.createElement('div'); el.className='fragment-item';
-      el.innerHTML = `<span>${f.name}</span><span class="tag">${f.effect}</span>`;
+      el.innerHTML = `<span>${f.name}</span><span class="tag">${f.desc}</span>`;
       el.onclick = () => {
         const idx = State.data.upgrades.indexOf(null);
         if(idx>-1) { Lore.install(f); UI.renderSlots(); }
@@ -412,58 +340,22 @@ const UI = {
     document.getElementById('modal-body').textContent = body;
     const acts = document.getElementById('modal-actions'); acts.innerHTML='';
     const b1=document.createElement('button'); b1.className='btn'; b1.textContent='INSTALL'; b1.onclick=onConfirm; acts.appendChild(b1);
-    const b2=document.createElement('button'); b2.className='btn'; b2.textContent='CLOSE'; b2.onclick=onCancel; acts.appendChild(b2);
+    const b2=document.createElement('button'); b2.className='btn'; b2.textContent='LATER'; b2.onclick=onCancel; acts.appendChild(b2);
     document.getElementById('modal').style.display='flex';
   },
   hideModal() { document.getElementById('modal').style.display='none'; }
 };
 
-// App Core
 const App = {
-  init() {
-    State.load();
-    Idle.calc();
-    Utils.log("SYSTEM READY");
-    this.returnToDesktop();
-    setInterval(() => { State.save(); }, 5000);
-  },
-  launchDecode() {
-    State.data.lastTick = Date.now();
-    Grid.generate();
-    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-    document.getElementById('grid-screen').classList.add('active');
-    Grid.render();
-  },
+  init() { State.load(); Idle.calc(); Utils.log("SYSTEM READY"); this.returnToDesktop(); setInterval(() => State.save(), 5000); },
+  launchDecode() { State.data.lastTick = Date.now(); Grid.generate(); document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById('grid-screen').classList.add('active'); Grid.render(); },
   move(dx, dy) { Movement.step(dx, dy); },
-  abortRun() {
-    Utils.log("RUN ABORTED.", "warn");
-    this.returnToDesktop();
-  },
-  openLore() {
-    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-    document.getElementById('lore-screen').classList.add('active');
-    UI.renderSlots();
-  },
-  returnToDesktop() {
-    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-    document.getElementById('desktop').classList.add('active');
-    UI.updateStats();
-    State.save();
-  },
-  exportSave() {
-    const json = JSON.stringify(State.data);
-    navigator.clipboard.writeText(json).then(()=>Utils.log("SAVE COPIED", "info"));
-  },
-  importSave() {
-    const input = prompt("PASTE SAVE JSON:");
-    if(!input) return;
-    try {
-      const d = JSON.parse(input);
-      if(d.energy!==undefined) { State.data = {...State.data, ...d}; State.save(); Utils.log("SAVE IMPORTED", "info"); }
-    } catch(e) { Utils.log("INVALID SAVE", "warn"); }
-  }
+  abortRun() { Utils.log("RUN ABORTED.", "warn"); this.returnToDesktop(); },
+  openLore() { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById('lore-screen').classList.add('active'); UI.renderSlots(); },
+  returnToDesktop() { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById('desktop').classList.add('active'); UI.updateStats(); State.save(); },
+  exportSave() { const json = JSON.stringify(State.data); navigator.clipboard.writeText(json).then(()=>Utils.log("SAVE COPIED", "info")); },
+  importSave() { const input = prompt("PASTE SAVE JSON:"); if(!input) return; try { const d = JSON.parse(input); if(d.energy!==undefined) { State.data = {...State.data, ...d}; State.save(); Utils.log("SAVE IMPORTED", "info"); } } catch(e) { Utils.log("INVALID SAVE", "warn"); } }
 };
-
 window.onload = App.init;
 window.onbeforeunload = () => { State.data.lastTick = Date.now(); State.save(); };
 </script>
