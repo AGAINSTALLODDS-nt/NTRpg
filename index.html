@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <title>ARCHIVE://DESCENT</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root {
+      --bg: #0a0a0a; --text: #00ff41; --text-dim: #008f11; --danger: #ff3333; --lore: #00ccff; --wall: #1a1a1a; --visited: #005500;
+      --font: 'Courier New', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 16px; line-height: 1.5; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+    
+    /* CRT EFFECTS */
+    .crt::before { content: ""; position: fixed; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.05) 2px, rgba(0,255,65,0.05) 4px); pointer-events: none; z-index: 999; }
+    .crt::after { content: ""; position: fixed; inset: 0; background: radial-gradient(circle, transparent 60%, rgba(0,0,0,0.6) 100%); pointer-events: none; z-index: 998; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .cursor { animation: blink 1s step-end infinite; }
+    .glitch { animation: flicker 0.1s infinite; }
+    @keyframes flicker { 0% { opacity: 0.9; transform: translateX(1px); } 100% { opacity: 1; transform: translateX(-1px); } }
+
+    /* LAYOUT */
+    #app { flex: 1; display: flex; flex-direction: column; padding: 1rem; overflow: hidden; }
+    .screen { display: none; flex: 1; flex-direction: column; }
+    .screen.active { display: flex; }
+    
+    /* DESKTOP */
+    #desktop { align-items: center; justify-content: center; gap: 2rem; }
+    .icon { width: 120px; padding: 1rem; border: 1px solid var(--text-dim); text-align: center; cursor: pointer; transition: all 0.2s; }
+    .icon:hover, .icon:focus { background: var(--text-dim); color: var(--bg); box-shadow: 0 0 8px var(--text); }
+    
+    /* GRID */
+    #grid-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    #grid-stats { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-dim); }
+    #grid-container { flex: 1; overflow: auto; display: grid; gap: 2px; align-content: start; user-select: none; }
+    .cell { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 2px; transition: all 0.1s; }
+    .cell.path { background: var(--wall); border: 1px solid #222; }
+    .cell.wall { background: #000; border: 1px solid #111; cursor: not-allowed; }
+    .cell.visited { background: var(--visited); border-color: var(--text-dim); }
+    .cell.current { background: var(--text); color: var(--bg); box-shadow: 0 0 10px var(--text); animation: pulse 1s infinite; }
+    .cell.exit { border: 2px dashed var(--danger); }
+    .cell.fog { background: #050505; border: 1px solid #0a0a0a; }
+    @keyframes pulse { 50% { transform: scale(0.9); } }
+
+    /* LORE/UPGRADES */
+    #lore-panel { padding: 1rem; }
+    .slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem; }
+    .slot { border: 1px solid var(--text-dim); padding: 0.5rem; min-height: 60px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 0.8rem; }
+    .slot.filled { border-color: var(--lore); color: var(--lore); }
+    .fragment-list { max-height: 200px; overflow-y: auto; margin-top: 1rem; border: 1px solid var(--text-dim); padding: 0.5rem; }
+    .fragment-item { cursor: pointer; padding: 0.3rem; border-bottom: 1px solid #222; }
+    .fragment-item:hover { background: var(--text-dim); color: var(--bg); }
+
+    /* TERMINAL LOG */
+    #terminal { height: 120px; border-top: 1px solid var(--text-dim); margin-top: 0.5rem; padding: 0.5rem; overflow-y: auto; font-size: 0.8rem; background: #050505; }
+    .log { margin-bottom: 2px; }
+    .log.sys { color: var(--text-dim); }
+    .log.warn { color: var(--danger); }
+    .log.info { color: var(--lore); }
+
+    /* MODAL */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { background: var(--bg); border: 2px solid var(--text); padding: 1.5rem; max-width: 90vw; max-height: 80vh; overflow: auto; text-align: center; }
+    .btn { background: transparent; border: 1px solid var(--text); color: var(--text); padding: 0.5rem 1rem; margin: 0.5rem; cursor: pointer; font-family: var(--font); }
+    .btn:hover { background: var(--text); color: var(--bg); }
+    .btn.danger { border-color: var(--danger); color: var(--danger); }
+    .btn.danger:hover { background: var(--danger); color: var(--bg); }
+
+    /* MOBILE */
+    @media (max-width: 430px) {
+      .cell { width: 28px; height: 28px; }
+      #terminal { height: 100px; }
+    }
+  </style>
+</head>
+<body class="crt">
+  <div id="app">
+    <!-- DESKTOP -->
+    <div id="desktop" class="screen active">
+      <h2 style="margin-bottom: 2rem;">UEFI-BIOS // V3.0</h2>
+      <div class="icon" onclick="App.launchDecode()">[DECODE ARCHIVE]</div>
+      <div class="icon" onclick="App.openLore()">[LORE DATABASE]</div>
+      <div class="icon" onclick="App.exportSave()">[EXPORT SAVE]</div>
+      <div class="icon" onclick="App.importSave()">[IMPORT SAVE]</div>
+    </div>
+
+    <!-- GRID RUN -->
+    <div id="grid-screen" class="screen">
+      <div id="grid-stats">
+        <span>LVL: <span id="ui-lvl">1</span></span>
+        <span>ENERGY: <span id="ui-energy">50</span>/<span id="ui-cap">50</span></span>
+        <span>LORE: <span id="ui-lore">0</span></span>
+      </div>
+      <div id="grid-wrapper">
+        <div id="grid-container"></div>
+      </div>
+      <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; justify-content: center;">
+        <button class="btn" onclick="App.move(0, -1)">▲</button>
+      </div>
+      <div style="display: flex; gap: 0.5rem; justify-content: center;">
+        <button class="btn" onclick="App.move(-1, 0)">◀</button>
+        <button class="btn" onclick="App.abortRun()">ABORT</button>
+        <button class="btn" onclick="App.move(1, 0)">▶</button>
+      </div>
+      <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; justify-content: center;">
+        <button class="btn" onclick="App.move(0, 1)">▼</button>
+      </div>
+    </div>
+
+    <!-- LORE/UPGRADES -->
+    <div id="lore-screen" class="screen">
+      <h3>SYSTEM CONFIG // UPGRADES</h3>
+      <div class="slot-grid" id="slot-container"></div>
+      <h4 style="margin-top: 1rem;">UNLOCKED FRAGMENTS</h4>
+      <div class="fragment-list" id="fragment-list"></div>
+      <button class="btn" onclick="App.returnToDesktop()" style="margin-top: 1rem;">[BACK TO DESKTOP]</button>
+    </div>
+  </div>
+
+  <div id="terminal"></div>
+
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <h3 id="modal-title">FRAGMENT DECRYPTED</h3>
+      <p id="modal-body" style="margin: 1rem 0; color: var(--lore);"></p>
+      <div id="modal-actions"></div>
+    </div>
+  </div>
+
+<script>
+/**
+ * ARCHIVE://DESCENT - PROTOTYPE v3.0
+ * Architecture: core | idle | grid | movement | upgrades | lore | save_load | utils
+ * Deploy: GitHub Pages (static)
+ */
+const Utils = {
+  mulberry32(a) {
+    return () => {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  },
+  hash(data) {
+    try { return btoa(JSON.stringify(data) + "ARCHIVE_SALT_v3"); } catch(e) { return ""; }
+  },
+  bfs(grid, start, end, size) {
+    const q = [start], visited = new Set([`${start.x},${start.y}`]);
+    const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+    while(q.length) {
+      const {x, y} = q.shift();
+      if(x===end.x && y===end.y) return true;
+      for(const [dx, dy] of dirs) {
+        const nx=x+dx, ny=y+dy;
+        if(nx>=0 && nx<size && ny>=0 && ny<size && !visited.has(`${nx},${ny}`) && grid[ny*size+nx]!=='wall') {
+          visited.add(`${nx},${ny}`); q.push({x:nx, y:ny});
+        }
+      }
+    }
+    return false;
+  },
+  log(msg, type='sys') {
+    const term = document.getElementById('terminal');
+    const div = document.createElement('div');
+    div.className = `log ${type}`;
+    div.textContent = `> ${msg}`;
+    term.appendChild(div);
+    term.scrollTop = term.scrollHeight;
+  }
+};
+
+const State = {
+  data: {
+    level: 1, xp: 0, energy: 50, cap: 50, lorePoints: 0,
+    fragments: [], upgrades: [null, null, null],
+    lastTick: Date.now(), inRun: false, runSeed: 0
+  },
+  run: { grid: [], size: 4, px: 0, py: 0, exitX: 0, exitY: 0, visited: new Set(), fog: new Set() },
+  save(key='archive_save_v3') {
+    const raw = { data: this.data, ts: Date.now() };
+    localStorage.setItem(key, JSON.stringify({ ...raw, hash: Utils.hash(raw.data) }));
+  },
+  load() {
+    const raw = localStorage.getItem('archive_save_v3');
+    if(!raw) return;
+    const { data, hash } = JSON.parse(raw);
+    if(Utils.hash(data) !== hash) { Utils.log("INTEGRITY MISMATCH. RESEARCH MODE ENGAGED.", "warn"); return; }
+    this.data = { ...this.data, ...data };
+  }
+};
+
+const Idle = {
+  calc() {
+    const elapsed = (Date.now() - State.data.lastTick) / 1000;
+    if(elapsed < 0) return;
+    const regen = Math.floor(elapsed / 30) + (State.data.upgrades.filter(u=>u==='IDLE_BOOST').length * 0.5);
+    const decayCap = Math.floor(State.data.cap * Math.pow(0.9, Math.floor(elapsed/3600)));
+    State.data.cap = Math.max(50, State.data.cap);
+    State.data.energy = Math.min(State.data.cap, State.data.energy + regen);
+    State.data.lastTick = Date.now();
+    Utils.log(`IDLE SYNC: +${regen} ENERGY | CAP: ${State.data.cap}`, "sys");
+  },
+  saveTick() { State.data.lastTick = Date.now(); State.save(); }
+};
+
+const Grid = {
+  generate() {
+    const lvl = State.data.level;
+    State.run.size = Math.min(32, 4 + Math.floor(lvl/2)*4);
+    const sz = State.run.size;
+    const cells = Array(sz*sz).fill('path');
+    const rng = Utils.mulberry32(Date.now() ^ lvl);
+    const wallChance = 0.15 + (lvl*0.05);
+    
+    for(let i=0; i<sz*sz; i++) if(rng() < wallChance) cells[i] = 'wall';
+    
+    State.run.px = 0; State.run.py = 0;
+    State.run.exitX = sz-1; State.run.exitY = sz-1;
+    cells[State.run.py*sz + State.run.px] = 'spawn';
+    cells[State.run.exitY*sz + State.run.exitX] = 'exit';
+    
+    while(!Utils.bfs(cells, {x:0,y:0}, {x:sz-1,y:sz-1}, sz)) {
+      const idx = Math.floor(rng()*cells.length);
+      if(cells[idx]==='wall') cells[idx] = 'path';
+    }
+    
+    // Assign cell effects
+    const types = ['path','energy','drain','lore','trap','bypass'];
+    for(let y=0; y<sz; y++) {
+      for(let x=0; x<sz; x++) {
+        const i = y*sz + x;
+        if(cells[i]==='wall' || cells[i]==='spawn' || cells[i]==='exit') continue;
+        const w = [0.6-wallChance*0.5, 0.2-lvl*0.01, 0.1+lvl*0.03, 0.08, 0.07+lvl*0.04, 0.03];
+        let r = rng(), sum = 0;
+        for(let t=0; t<types.length; t++) { sum += w[t]; if(r < sum) { cells[i] = types[t]; break; } }
+      }
+    }
+    State.run.grid = cells;
+    State.run.visited = new Set(["0,0"]);
+    this.updateFog();
+    Utils.log(`ARCHIVE MOUNTED: ${sz}x${sz} SECTOR`, "info");
+  },
+  updateFog() {
+    const {size, px, py, visited} = State.run;
+    State.run.fog = new Set();
+    const add = (x,y,r) => {
+      for(let dy=-r; dy<=r; dy++) for(let dx=-r; dx<=r; dx++) {
+        const nx=x+dx, ny=y+dy;
+        if(nx>=0 && nx<size && ny>=0 && ny<size) State.run.fog.add(`${nx},${ny}`);
+      }
+    };
+    add(px, py, 1);
+    visited.forEach(k => { const [x,y] = k.split(',').map(Number); add(x,y,1); });
+  },
+  render() {
+    const cont = document.getElementById('grid-container');
+    cont.innerHTML = '';
+    cont.style.gridTemplateColumns = `repeat(${State.run.size}, 28px)`;
+    for(let y=0; y<State.run.size; y++) {
+      for(let x=0; x<State.run.size; x++) {
+        const key = `${x},${y}`;
+        const el = document.createElement('div');
+        el.className = 'cell';
+        if(!State.run.fog.has(key)) { el.classList.add('fog'); cont.appendChild(el); continue; }
+        const type = State.run.grid[y*State.run.size+x];
+        el.classList.add(type==='wall'?'wall': State.run.visited.has(key)?'visited':'path');
+        if(x===State.run.px && y===State.run.py) { el.classList.add('current'); el.textContent = '▶'; }
+        else if(type==='exit') el.classList.add('exit');
+        else if(State.run.visited.has(key) && type!=='wall' && type!=='spawn') el.textContent = type[0].toUpperCase();
+        cont.appendChild(el);
+      }
+    }
+    UI.updateStats();
+  }
+};
+
+const Movement = {
+  step(dx, dy) {
+    if(State.data.energy <= 0) { Utils.log("ENERGY DEPLETED. ABORT RUN OR WAIT.", "warn"); return; }
+    const nx = State.run.px + dx, ny = State.run.py + dy;
+    if(nx<0||nx>=State.run.size||ny<0||ny>=State.run.size) return;
+    const key = `${nx},${ny}`;
+    const cell = State.run.grid[ny*State.run.size+nx];
+    if(cell==='wall') return;
+    
+    State.data.energy -= 1 + (State.data.upgrades.includes('STEP_PENALTY')?1:0);
+    State.run.px = nx; State.run.py = ny;
+    State.run.visited.add(key);
+    Grid.updateFog();
+    this.applyCell(cell);
+    Grid.render();
+    
+    if(nx===State.run.exitX && ny===State.run.exitY) this.win();
+    else if(State.data.energy<=0) Utils.log("PATH 94% COMPLETE. CRITICAL.", "warn");
+  },
+  applyCell(type) {
+    switch(type) {
+      case 'energy': State.data.energy += 2 + Math.floor(State.data.level/2); Utils.log(`CELL: +ENERGY`, "info"); break;
+      case 'drain': State.data.energy -= 3; Utils.log(`CELL: DRAIN ACTIVE`, "warn"); break;
+      case 'trap': if(Math.random()>0.5) { State.data.energy -= 2; Utils.log(`TRAP HIT! -2 ENERGY`, "warn"); } break;
+      case 'lore': Lore.drop(); Utils.log(`LORE SIGNAL DETECTED`, "info"); break;
+      case 'bypass': State.data.energy += 1; Utils.log(`BYPASS: +1 FREE STEP`, "info"); break;
+      default: break;
+    }
+    UI.updateStats();
+  },
+  win() {
+    State.inRun = false;
+    const xp = 50 + State.data.level * 20;
+    State.data.xp += xp; State.data.level = Math.floor(State.data.xp / 150) + 1;
+    State.data.cap = 50 + State.data.level * 10;
+    Utils.log(`ARCHIVE DECODED. +${xp}XP | LVL ${State.data.level}`, "sys");
+    App.returnToDesktop();
+  }
+};
+
+const Lore = {
+  fragments: [
+    {id:'f1', name:'Legacy Protocol', effect:'IDLE_BOOST'},
+    {id:'f2', name:'Neural Bridge', effect:'STEP_PASS'},
+    {id:'f3', name:'Data Leech', effect:'ENERGY_SIPHON'}
+  ],
+  drop() {
+    const frag = this.fragments[Math.floor(Math.random()*this.fragments.length)];
+    if(!State.data.fragments.includes(frag.id)) {
+      State.data.fragments.push(frag.id);
+      UI.showModal(`FRAGMENT DECRYPTED`, `${frag.name} [${frag.effect}]\nInstall to upgrade slot?`, () => {
+        Lore.install(frag);
+      }, () => UI.hideModal());
+    }
+  },
+  install(frag) {
+    const emptyIdx = State.data.upgrades.indexOf(null);
+    if(emptyIdx === -1) { Utils.log("ALL SLOTS OCCUPIED. REPLACE?", "warn"); return; }
+    State.data.upgrades[emptyIdx] = frag.effect;
+    UI.hideModal();
+    Utils.log(`UPGRADE INSTALLED: ${frag.name}`, "sys");
+    UI.renderSlots();
+  }
+};
+
+const UI = {
+  updateStats() {
+    document.getElementById('ui-lvl').textContent = State.data.level;
+    document.getElementById('ui-energy').textContent = State.data.energy;
+    document.getElementById('ui-cap').textContent = State.data.cap;
+    document.getElementById('ui-lore').textContent = State.data.fragments.length;
+  },
+  renderSlots() {
+    const cont = document.getElementById('slot-container');
+    cont.innerHTML = '';
+    State.data.upgrades.forEach((u, i) => {
+      const el = document.createElement('div');
+      el.className = `slot ${u?'filled':''}`;
+      el.textContent = u || `SLOT ${i+1} [EMPTY]`;
+      el.onclick = () => { if(u) { State.data.upgrades[i]=null; UI.renderSlots(); Utils.log(`SLOT ${i+1} CLEARED`); } };
+      cont.appendChild(el);
+    });
+    const list = document.getElementById('fragment-list');
+    list.innerHTML = '';
+    State.data.fragments.forEach(fid => {
+      const f = Lore.fragments.find(x=>x.id===fid);
+      if(!f) return;
+      const el = document.createElement('div'); el.className='fragment-item'; el.textContent = `${f.name} [${f.effect}]`;
+      el.onclick = () => {
+        const idx = State.data.upgrades.indexOf(null);
+        if(idx>-1) { State.data.upgrades[idx]=f.effect; UI.renderSlots(); Utils.log(`INSTALLED ${f.name}`); }
+        else Utils.log("SLOTS FULL", "warn");
+      };
+      list.appendChild(el);
+    });
+  },
+  showModal(title, body, onConfirm, onCancel) {
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-body').textContent = body;
+    const acts = document.getElementById('modal-actions'); acts.innerHTML='';
+    const b1=document.createElement('button'); b1.className='btn'; b1.textContent='INSTALL'; b1.onclick=onConfirm; acts.appendChild(b1);
+    const b2=document.createElement('button'); b2.className='btn'; b2.textContent='LATER'; b2.onclick=onCancel; acts.appendChild(b2);
+    document.getElementById('modal').style.display='flex';
+  },
+  hideModal() { document.getElementById('modal').style.display='none'; }
+};
+
+const App = {
+  init() {
+    State.load();
+    Idle.calc();
+    Utils.log("SYSTEM BOOT // ARCHIVE READY");
+    this.returnToDesktop();
+    setInterval(() => { State.save(); }, 5000);
+  },
+  launchDecode() {
+    State.data.lastTick = Date.now();
+    Grid.generate();
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('grid-screen').classList.add('active');
+    Grid.render();
+    Utils.log("RUN INITIATED. NAVIGATE TO EXIT.");
+  },
+  move(dx, dy) { Movement.step(dx, dy); },
+  abortRun() {
+    State.data.energy = Math.max(0, State.data.energy - 20);
+    Utils.log("RUN ABORTED. PENALTY APPLIED.", "warn");
+    this.returnToDesktop();
+  },
+  openLore() {
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('lore-screen').classList.add('active');
+    UI.renderSlots();
+  },
+  returnToDesktop() {
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('desktop').classList.add('active');
+    UI.updateStats();
+    State.save();
+  },
+  exportSave() {
+    const json = JSON.stringify(State.data);
+    navigator.clipboard.writeText(json).then(()=>Utils.log("SAVE COPIED TO CLIPBOARD", "info"));
+  },
+  importSave() {
+    const input = prompt("PASTE SAVE JSON:");
+    if(!input) return;
+    try {
+      const d = JSON.parse(input);
+      if(d.energy!==undefined) { State.data = {...State.data, ...d}; State.save(); Utils.log("SAVE IMPORTED", "info"); }
+    } catch(e) { Utils.log("INVALID SAVE FORMAT", "warn"); }
+  }
+};
+
+window.onload = App.init;
+window.onbeforeunload = Idle.saveTick;
+</script>
+</body>
+</html>
+
