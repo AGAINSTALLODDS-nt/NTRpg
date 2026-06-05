@@ -17,26 +17,26 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; outline: none; }
     body { background: var(--bg); color: var(--text); font-family: var(--font); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-    #app { flex: 1; display: flex; flex-direction: column; padding: 1rem; overflow: hidden; }
-    .screen { display: none; flex: 1; flex-direction: column; background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); padding: 1rem; margin-bottom: 1rem; overflow: hidden; position: relative; }
+    #app { flex: 1; display: flex; flex-direction: column; padding: 1rem; overflow: hidden; position: relative; }
+    .screen { display: none; flex: 1; flex-direction: column; background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); padding: 1rem; margin-bottom: 1rem; overflow: hidden; }
     .screen.active { display: flex; animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     
     /* DESKTOP */
     #desktop { justify-content: center; align-items: center; gap: 1.5rem; }
     #desktop-stats { position: absolute; top: 1rem; left: 1rem; font-size: 0.9rem; font-weight: 600; color: var(--text-dim); background: var(--surface); padding: 0.5rem 1rem; border-radius: 8px; box-shadow: var(--shadow); }
+    .settings-btn { position: absolute; top: 1rem; right: 1rem; background: var(--surface); border: 1px solid #e1e8ed; border-radius: 8px; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.9rem; box-shadow: var(--shadow); }
     .icon { width: 140px; height: 100px; background: var(--surface); border: 1px solid #e1e8ed; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow); }
     .icon:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,123,255,0.15); }
     .icon-label { margin-top: 0.5rem; font-size: 0.9rem; font-weight: 500; color: var(--text-dim); }
     .icon-title { font-weight: bold; color: var(--accent); font-size: 1.1rem; }
-    .settings-btn { position: absolute; top: 1rem; right: 1rem; background: var(--surface); border: 1px solid #e1e8ed; border-radius: 8px; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.9rem; box-shadow: var(--shadow); }
 
     /* GRID */
     #grid-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding: 0.5rem; background: #f8f9fa; border-radius: 8px; font-size: 0.85rem; }
     #objective-tracker { color: var(--accent); font-weight: 600; flex: 1; margin-left: 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #grid-wrapper { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 0.5rem; }
     #grid-container { display: grid; gap: 3px; user-select: none; background: #e9ecef; padding: 3px; border-radius: 4px; }
-    .cell { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; border-radius: 4px; transition: all 0.15s; background: var(--surface); }
+    .cell { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; border-radius: 4px; transition: all 0.15s; background: var(--surface); }
     .cell.path { border: 1px solid #dee2e6; color: #adb5bd; }
     .cell.wall { background: var(--wall); border: 1px solid #ced4da; cursor: not-allowed; color: #ced4da; }
     .cell.visited { background: var(--visited); border-color: var(--accent); }
@@ -49,6 +49,7 @@
     .type-lore { color: var(--lore); background: #e0f7fa; font-weight: bold; }
     .type-bypass { color: var(--success); background: #e0f2e9; }
     .type-fail { background: #000; color: var(--danger); border: 2px solid var(--danger); }
+    .type-objfile { color: var(--lore); background: #e0f7fa; font-weight: bold; border: 1px dashed var(--lore); }
     
     /* CONTROLS */
     .controls-wrapper { margin-top: 1rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
@@ -86,8 +87,8 @@
     <!-- DESKTOP -->
     <div id="desktop" class="screen active">
       <div id="desktop-stats">LVL <span id="desk-lvl">1</span> | ⚡ <span id="desk-energy">50</span>/<span id="desk-cap">50</span></div>
-      <button class="settings-btn" onclick="App.openSettings()">⚙️ Settings</button>
-      <h2 style="margin-bottom: 1rem; color: var(--text-dim); font-size: 0.8rem; letter-spacing: 1px;">SYSTEM OS v3.4</h2>
+      <button class="settings-btn" onclick="App.openSettings()">⚙️</button>
+      <h2 style="margin-bottom: 1rem; color: var(--text-dim); font-size: 0.8rem; letter-spacing: 1px;">SYSTEM OS v3.5</h2>
       <div class="icon" onclick="App.launchDecode()"><div class="icon-title">DECODE</div><div class="icon-label">Launch Archive</div></div>
       <div class="icon" onclick="App.openLore()"><div class="icon-title">UPGRADES</div><div class="icon-label">Slot Manager</div></div>
       <div class="icon" onclick="App.importSave()"><div class="icon-title">LOAD</div><div class="icon-label">Import Data</div></div>
@@ -146,26 +147,31 @@ const Utils = {
   mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; },
   hash(data) { try { return btoa(JSON.stringify(data) + "ARCHIVE_SALT_v3"); } catch(e) { return ""; } },
   bfs(grid, start, end, size) {
-    const q = [start], visited = new Set([`<LaTex>id_19</LaTex>{start.y}`]);
+    const q = [start], visited = new Set([`${start.x},${start.y}`]);
     while(q.length) {
       const {x, y} = q.shift();
       if(x===end.x && y===end.y) return true;
       for(const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0]]) {
-        const nx=x+dx, ny=y+dy, k=`<LaTex>id_18</LaTex>{ny}`;
+        const nx=x+dx, ny=y+dy, k=`${nx},${ny}`;
         if(nx>=0 && nx<size && ny>=0 && ny<size && !visited.has(k) && grid[ny*size+nx]!=='wall') { visited.add(k); q.push({x:nx, y:ny}); }
       }
     } return false;
   },
   log(msg, type='sys') {
     const term = document.getElementById('terminal');
-    const div = document.createElement('div'); div.className = `log <LaTex>id_17</LaTex>{msg}`;
+    const div = document.createElement('div'); div.className = `log ${type}`; div.textContent = `> ${msg}`;
     term.appendChild(div); term.scrollTop = term.scrollHeight;
   }
 };
 
 const State = {
   data: { level: 1, xp: 0, energy: 50, cap: 50, fragments: [], upgrades: [null, null, null], lastTick: Date.now(), runsCleared: 0, inRun: false },
-  run: { grid: [], size: 4, px: 0, py: 0, exitX: 0, exitY: 0, visited: new Set(), fog: new Set(), triggered: new Set(), objectives: [], wallBypassCharges: 0, steps: 0, objLore: 0, objDrain: 0, objEnergy: 0 },
+  run: { 
+    grid: [], size: 4, px: 0, py: 0, exitX: 0, exitY: 0, 
+    visited: new Set(), fog: new Set(), triggered: new Set(),
+    objectives: [], steps: 0, objFile: 0, objDrain: 0, objEnergy: 0,
+    wallBypassCharges: 0
+  },
   save(key='archive_save_v3') {
     const raw = { data: this.data, ts: Date.now() };
     localStorage.setItem(key, JSON.stringify({ ...raw, hash: Utils.hash(raw.data) }));
@@ -178,72 +184,307 @@ const State = {
       if(Utils.hash(data) !== hash) { Utils.log("DATA CORRUPTED. USING DEFAULT.", "warn"); return; }
       this.data = { ...this.data, ...data };
       this.data.energy = Math.max(0, Math.min(this.data.energy, this.data.cap));
-    } catch(e) {
-      Utils.log("SAVE ERROR. USING DEFAULT.", "warn");
-    }
+    } catch(e) { Utils.log("SAVE ERROR. USING DEFAULT.", "warn"); }
   }
 };
 
 const Idle = {
   calc() {
-    if(State.data.inRun) return;
+    if(State.data.inRun) return; // 🔒 No regen during run
     const elapsed = (Date.now() - State.data.lastTick) / 1000;
     if(elapsed < 5) return;
-    const baseRate = 0.05;
+    const baseRate = 0.05; // 1/20s
     const boostRate = State.data.upgrades.includes('IDLE_BOOST') ? 1 : 0;
     const regen = Math.floor(elapsed * (baseRate + boostRate));
     State.data.energy = Math.min(State.data.cap, State.data.energy + regen);
     State.data.lastTick = Date.now();
-    if(regen > 0) Utils.log(`IDLE SYNC: +<LaTex>id_16</LaTex>{target} cells`, 
-          lore:`Collect <LaTex>id_15</LaTex>{target} Drains`, 
-          energy:`Step on <LaTex>id_14</LaTex>{sz}x<LaTex>id_13</LaTex>{nx},<LaTex>id_12</LaTex>{o.desc[o.type]} [<LaTex>id_11</LaTex>{o.target}]`;
+    if(regen > 0) Utils.log(`IDLE SYNC: +${regen} Energy`, "info");
+  }
+};
+
+const Grid = {
+  generate() {
+    const lvl = State.data.level;
+    State.run.size = Math.min(16, 4 + Math.floor(lvl/2)*2);
+    const sz = State.run.size;
+    const cells = Array(sz*sz).fill('path');
+    const rng = Utils.mulberry32(Date.now() ^ lvl);
+    const wallChance = 0.15 + (lvl*0.03);
+    
+    for(let i=0; i<sz*sz; i++) if(rng() < wallChance) cells[i] = 'wall';
+    
+    State.run.px = 0; State.run.py = 0;
+    State.run.exitX = sz-1; State.run.exitY = sz-1;
+    cells[0] = 'spawn'; cells[sz*sz-1] = 'exit';
+    
+    while(!Utils.bfs(cells, {x:0,y:0}, {x:sz-1,y:sz-1}, sz)) {
+      const idx = Math.floor(rng()*cells.length);
+      if(cells[idx]==='wall') cells[idx] = 'path';
+    }
+    
+    // Cell types with weighted RNG
+    const types = ['path','energy','drain','lore','trap','bypass','fail','objfile'];
+    for(let y=0; y<sz; y++) for(let x=0; x<sz; x++) {
+      const i = y*sz + x;
+      if(['wall','spawn','exit'].includes(cells[i])) continue;
+      let r = rng();
+      if(r < 0.25 - lvl*0.01) cells[i] = 'energy';
+      else if(r < 0.4 + lvl*0.02) cells[i] = 'drain';
+      else if(r < 0.5) cells[i] = 'lore';
+      else if(r < 0.65 + lvl*0.02) cells[i] = 'trap';
+      else if(r < 0.7) cells[i] = 'bypass';
+      else if(r < 0.73) cells[i] = 'fail';
+      else if(r < 0.78) cells[i] = 'objfile';
+      else cells[i] = 'path';
+    }
+    
+    // Random objectives (60% chance)
+    State.run.objectives = [];
+    if(Math.random() < 0.6) {
+      const pool = ['steps', 'file', 'drain', 'energy'];
+      const type = pool[Math.floor(Math.random()*pool.length)];
+      let target;
+      switch(type) {
+        case 'steps': target = 10 + lvl*3; break;
+        case 'file': target = Math.min(3, 1 + Math.floor(lvl/2)); break;
+        case 'drain': target = 2 + Math.floor(lvl/2); break;
+        case 'energy': target = 3; break;
+      }
+      State.run.objectives.push({ type, target, progress: 0 });
+    }
+    
+    // Reset run state
+    State.run.visited = new Set(["0,0"]);
+    State.run.triggered = new Set();
+    State.run.steps = 0;
+    State.run.objFile = 0; State.run.objDrain = 0; State.run.objEnergy = 0;
+    State.run.wallBypassCharges = State.data.upgrades.includes('WALL_BYPASS') ? 2 : 0;
+    
+    this.updateFog();
+    this.updateObjectiveUI();
+    Utils.log(`GRID MOUNTED: ${sz}x${sz}`, "info");
+  },
+  
+  updateFog() {
+    const radius = State.data.upgrades.includes('VISION_BOOST') ? 2 : 1;
+    const {size, px, py, visited} = State.run;
+    State.run.fog = new Set();
+    const add = (x,y) => {
+      for(let dy=-radius; dy<=radius; dy++) for(let dx=-radius; dx<=radius; dx++) {
+        const nx=x+dx, ny=y+dy;
+        if(nx>=0 && nx<size && ny>=0 && ny<size) State.run.fog.add(`${nx},${ny}`);
+      }
+    };
+    add(px, py);
+    visited.forEach(k => { const [x,y] = k.split(',').map(Number); add(x,y); });
+  },
+  
+  updateObjectiveUI() {
+    const el = document.getElementById('objective-tracker');
+    if(State.run.objectives.length === 0) { el.textContent = "NO OBJECTIVES"; el.style.color = "#666"; return; }
+    const o = State.run.objectives[0];
+    const names = { steps: 'Steps', file: 'Files', drain: 'Drains', energy: 'Energy' };
+    const done = o.progress >= o.target;
+    el.textContent = `${names[o.type]}: ${o.progress}/${o.target}`;
     el.style.color = done ? "#2a9d8f" : "#007bff";
   },
+  
   render() {
     const cont = document.getElementById('grid-container');
     cont.innerHTML = '';
-    cont.style.gridTemplateColumns = `repeat(<LaTex>id_10</LaTex>{x},<LaTex>id_9</LaTex>{type}`);
+    cont.style.gridTemplateColumns = `repeat(${State.run.size}, 32px)`;
+    
+    const icons = { 
+      energy: '⚡', drain: '📉', lore: '', trap: '💣', 
+      bypass: '⏩', fail: '💀', objfile: '' 
+    };
+    
+    for(let y=0; y<State.run.size; y++) {
+      for(let x=0; x<State.run.size; x++) {
+        const key = `${x},${y}`;
+        const el = document.createElement('div'); el.className = 'cell';
+        const type = State.run.grid[y*State.run.size+x];
+        
+        if(State.run.fog.has(key)) {
+          if(x===State.run.px && y===State.run.py) {
+            el.classList.add('current');
+          } else if(type==='exit') {
+            el.classList.add('exit');
+            el.textContent = 'EXIT';
+          } else if(type==='wall') {
+            el.classList.add('wall');
+          } else if(State.run.visited.has(key)) {
+            el.classList.add('visited');
+            if(icons[type]) {
+              el.classList.add(`type-${type}`);
               el.textContent = icons[type];
             }
-          } 
-          // Unvisited but visible (fog of war around player)
-          else {
-            el.style.border = '1px dashed #ccc';
+          } else {
+            // Visible but not visited - show icon if exists
             if(icons[type]) {
-              el.classList.add(`type-<LaTex>id_8</LaTex>{nx},<LaTex>id_7</LaTex>{State.run.wallBypassCharges} left]`, "info");
-    } else if(cell === 'wall') {
-      return;
+              el.classList.add(`type-${type}`);
+              el.textContent = icons[type];
+              el.style.opacity = '0.7';
+            }
+          }
+        } else {
+          el.classList.add('fog');
+        }
+        cont.appendChild(el);
+      }
+    }
+    UI.updateStats();
+  }
+};
+
+const Movement = {
+  step(dx, dy) {
+    if(State.data.energy <= 0) { App.endRun(false, "Energy depleted"); return; }
+    
+    const nx = State.run.px + dx, ny = State.run.py + dy;
+    if(nx<0||nx>=State.run.size||ny<0||ny>=State.run.size) return;
+    const key = `${nx},${ny}`;
+    let cell = State.run.grid[ny*State.run.size+nx];
+    
+    // Wall bypass logic
+    if(cell === 'wall') {
+      if(State.run.wallBypassCharges > 0) {
+        State.run.wallBypassCharges--;
+        cell = 'path';
+        Utils.log(`WALL PHASED [${State.run.wallBypassCharges} left]`, "info");
+      } else {
+        return; // Can't pass
+      }
     }
     
-    if(!State.run.visited.has(key)) {
+    // Energy cost only for NEW cells
+    const isNew = !State.run.visited.has(key);
+    if(isNew) {
       State.data.energy = Math.max(0, State.data.energy - 1);
       State.run.steps++;
     }
+    
+    // Check energy after cost
     if(State.data.energy === 0) { App.endRun(false, "Energy depleted"); return; }
     
+    // Move player
     State.run.px = nx; State.run.py = ny;
     State.run.visited.add(key);
     Grid.updateFog();
-    this.applyCell(cell, key);
+    
+    // Apply cell effect
+    this.applyCell(cell, key, isNew);
     Grid.render();
     
+    // Check win condition
     if(nx===State.run.exitX && ny===State.run.exitY) {
-      const objMet = State.run.objectives.length === 0 || State.run.objectives[0].progress >= State.run.objectives[0].target;
-      objMet ? App.endRun(true, "Archive Decoded") : Utils.log("OBJECTIVE NOT MET", "warn");
+      const objMet = State.run.objectives.length === 0 || 
+                     State.run.objectives[0].progress >= State.run.objectives[0].target;
+      if(objMet) {
+        App.endRun(true, "Archive Decoded");
+      } else {
+        Utils.log("OBJECTIVE NOT MET", "warn");
+      }
     }
   },
-  applyCell(type, key) {
-    const isNew = !State.run.triggered.has(key);
+  
+  applyCell(type, key, isNew) {
     switch(type) {
       case 'energy':
-        if(isNew) {
+        if(isNew && !State.run.triggered.has(key)) {
           const gain = 3 + Math.floor(State.data.level/3);
           State.data.energy = Math.min(State.data.cap, State.data.energy + gain);
           State.run.triggered.add(key);
           State.run.objEnergy++;
-          Utils.log(`+<LaTex>id_6</LaTex>{target.name}\n<LaTex>id_5</LaTex>{frag.name}`, "info"); }
-    else Utils.log("SLOTS FULL", "warn");
-    UI.hideModal(); UI.renderSlots();
+          Utils.log(`+${gain} Energy`, "info");
+        }
+        break;
+      case 'drain':
+        // Always applies
+        State.data.energy = Math.max(0, State.data.energy - 3);
+        State.run.objDrain++;
+        Utils.log(`-3 Energy (Drain)`, "warn");
+        break;
+      case 'trap':
+        // Always applies
+        State.data.energy = Math.max(0, State.data.energy - 2);
+        Utils.log(`-2 Energy (Trap)`, "warn");
+        break;
+      case 'lore':
+        if(isNew) Lore.drop();
+        break;
+      case 'bypass':
+        if(isNew && !State.run.triggered.has(key)) {
+          State.data.energy = Math.min(State.data.cap, State.data.energy + 1);
+          State.run.triggered.add(key);
+          Utils.log(`+1 Bypass`, "info");
+        }
+        break;
+      case 'fail':
+        // Total fail - end run, lose 50% energy
+        State.data.energy = Math.max(0, Math.floor(State.data.energy * 0.5));
+        App.endRun(false, "SYSTEM FAILURE");
+        return;
+      case 'objfile':
+        if(isNew && !State.run.triggered.has(key)) {
+          State.run.objFile++;
+          State.run.triggered.add(key);
+          Utils.log(`File collected`, "info");
+        }
+        break;
+    }
+    
+    // Update objective progress
+    if(State.run.objectives.length > 0) {
+      const o = State.run.objectives[0];
+      switch(o.type) {
+        case 'steps': o.progress = State.run.steps; break;
+        case 'file': o.progress = State.run.objFile; break;
+        case 'drain': o.progress = State.run.objDrain; break;
+        case 'energy': o.progress = State.run.objEnergy; break;
+      }
+      Grid.updateObjectiveUI();
+    }
+    UI.updateStats();
+  }
+};
+
+const Lore = {
+  fragments: [
+    {id:'f1', name:'Idle Core v1', effect:'IDLE_BOOST', desc:'+1 Energy/sec'},
+    {id:'f2', name:'Phase Shift', effect:'WALL_BYPASS', desc:'Ignore 2 Walls/run'},
+    {id:'f3', name:'Data Leech', effect:'ENERGY_SIPHON', desc:'+1 Energy from cells'},
+    {id:'f4', name:'Deep Scan', effect:'VISION_BOOST', desc:'+1 Vision Radius'}
+  ],
+  drop() {
+    const chance = State.data.runsCleared === 0 ? 1 : (0.45 + State.data.level * 0.02);
+    if(Math.random() > chance && State.data.runsCleared > 0) return;
+    
+    const pool = this.fragments.filter(f => !State.data.fragments.includes(f.id));
+    if(pool.length === 0) return;
+    
+    // Weighted: IDLE_BOOST more common until installed
+    let target;
+    if(!State.data.fragments.includes('f1') && Math.random() < 0.6) {
+      target = pool.find(f => f.id === 'f1') || pool[0];
+    } else {
+      target = pool[Math.floor(Math.random() * pool.length)];
+    }
+    
+    State.data.fragments.push(target.id);
+    UI.showModal(`FRAGMENT FOUND`, `${target.name}\n${target.desc}`, 
+      () => { this.install(target); }, () => UI.hideModal());
+  },
+  install(frag) {
+    const emptyIdx = State.data.upgrades.indexOf(null);
+    if(emptyIdx > -1) {
+      State.data.upgrades[emptyIdx] = frag.effect;
+      Utils.log(`INSTALLED: ${frag.name}`, "info");
+    } else {
+      Utils.log("SLOTS FULL", "warn");
+    }
+    UI.hideModal();
+    UI.renderSlots();
   }
 };
 
@@ -257,13 +498,80 @@ const UI = {
   },
   renderSlots() {
     const cont = document.getElementById('slot-container'); cont.innerHTML = '';
+    const names = {
+      IDLE_BOOST: '+1⚡/sec', 
+      WALL_BYPASS: '2 Wall Bypass', 
+      ENERGY_SIPHON: '+1 Cell Gain', 
+      VISION_BOOST: '+2 Vision'
+    };
     State.data.upgrades.forEach((u, i) => {
-      const el = document.createElement('div'); el.className = `slot <LaTex>id_4</LaTex>{i+1} [EMPTY]`;
-      el.onclick = () => { if(u) { State.data.upgrades[i]=null; UI.renderSlots(); Utils.log(`SLOT <LaTex>id_3</LaTex>{f.name}</span><span class="tag"><LaTex>id_2</LaTex>{reason}. +<LaTex>id_1</LaTex>{energyReward}⚡`, "info");
+      const el = document.createElement('div');
+      el.className = `slot ${u?'filled':''}`;
+      el.textContent = u ? names[u] : `SLOT ${i+1} [EMPTY]`;
+      el.onclick = () => { 
+        if(u) { State.data.upgrades[i]=null; UI.renderSlots(); Utils.log(`SLOT ${i+1} CLEARED`); } 
+      };
+      cont.appendChild(el);
+    });
+    
+    const list = document.getElementById('fragment-list'); list.innerHTML = '';
+    State.data.fragments.forEach(fid => {
+      const f = Lore.fragments.find(x=>x.id===fid);
+      if(!f || State.data.upgrades.includes(f.effect)) return;
+      const el = document.createElement('div'); el.className='fragment-item';
+      el.innerHTML = `<span>${f.name}</span><span class="tag">${f.desc}</span>`;
+      el.onclick = () => {
+        const idx = State.data.upgrades.indexOf(null);
+        if(idx>-1) { Lore.install(f); UI.renderSlots(); }
+        else Utils.log("SLOTS FULL", "warn");
+      };
+      list.appendChild(el);
+    });
+  },
+  showModal(title, body, onConfirm, onCancel) {
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-body').textContent = body;
+    const acts = document.getElementById('modal-actions'); acts.innerHTML='';
+    const b1=document.createElement('button'); b1.className='btn'; b1.textContent='INSTALL'; b1.onclick=onConfirm; acts.appendChild(b1);
+    const b2=document.createElement('button'); b2.className='btn'; b2.textContent='LATER'; b2.onclick=onCancel; acts.appendChild(b2);
+    document.getElementById('modal').style.display='flex';
+  },
+  hideModal() { document.getElementById('modal').style.display='none'; }
+};
+
+const App = {
+  init() { 
+    State.load(); 
+    Idle.calc(); 
+    Utils.log("SYSTEM READY"); 
+    this.returnToDesktop(); 
+    setInterval(() => State.save(), 5000); 
+  },
+  launchDecode() { 
+    State.data.lastTick = Date.now(); 
+    State.data.inRun = true; 
+    Grid.generate(); 
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); 
+    document.getElementById('grid-screen').classList.add('active'); 
+    Grid.render(); 
+  },
+  move(dx, dy) { Movement.step(dx, dy); },
+  abortRun() { if(confirm("Abort current run?")) this.endRun(false, "Aborted"); },
+  endRun(success, reason) {
+    State.data.inRun = false;
+    if(success) {
+      State.data.runsCleared++;
+      const xp = 50 + State.data.level * 20;
+      const energyReward = 15 + State.data.level * 4;
+      State.data.xp += xp; 
+      State.data.level = Math.floor(State.data.xp / 150) + 1;
+      State.data.cap = 50 + State.data.level * 10;
+      State.data.energy = Math.max(0, Math.min(State.data.cap, State.data.energy + energyReward));
+      Utils.log(`${reason}. +${xp}XP | +${energyReward}⚡`, "info");
     } else {
       Utils.log(reason, "warn");
     }
-    State.save(); 
+    State.save();
     this.returnToDesktop();
   },
   openLore() { 
@@ -276,7 +584,7 @@ const UI = {
     document.getElementById('settings-screen').classList.add('active');
   },
   resetProgress() {
-    if(confirm("Are you sure? This will delete all progress!")) {
+    if(confirm("⚠️ Reset ALL progress? This cannot be undone!")) {
       localStorage.removeItem('archive_save_v3');
       State.data = { level: 1, xp: 0, energy: 50, cap: 50, fragments: [], upgrades: [null, null, null], lastTick: Date.now(), runsCleared: 0, inRun: false };
       Utils.log("PROGRESS RESET", "warn");
@@ -292,9 +600,9 @@ const UI = {
   exportSave() { const json = JSON.stringify(State.data); navigator.clipboard.writeText(json).then(()=>Utils.log("SAVE COPIED", "info")); },
   importSave() { const input = prompt("PASTE SAVE JSON:"); if(!input) return; try { const d = JSON.parse(input); if(d.energy!==undefined) { State.data = {...State.data, ...d}; State.save(); Utils.log("SAVE IMPORTED", "info"); } } catch(e) { Utils.log("INVALID SAVE", "warn"); } }
 };
+
 window.onload = App.init;
 window.onbeforeunload = () => { State.data.lastTick = Date.now(); State.save(); };
 </script>
 </body>
 </html>
-
