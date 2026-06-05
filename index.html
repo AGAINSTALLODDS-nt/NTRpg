@@ -29,6 +29,7 @@
     .icon:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,123,255,0.15); }
     .icon-label { margin-top: 0.5rem; font-size: 0.9rem; font-weight: 500; color: var(--text-dim); }
     .icon-title { font-weight: bold; color: var(--accent); font-size: 1.1rem; }
+    .settings-btn { position: absolute; top: 1rem; right: 1rem; background: var(--surface); border: 1px solid #e1e8ed; border-radius: 8px; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.9rem; box-shadow: var(--shadow); }
 
     /* GRID */
     #grid-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding: 0.5rem; background: #f8f9fa; border-radius: 8px; font-size: 0.85rem; }
@@ -40,7 +41,7 @@
     .cell.wall { background: var(--wall); border: 1px solid #ced4da; cursor: not-allowed; color: #ced4da; }
     .cell.visited { background: var(--visited); border-color: var(--accent); }
     .cell.current { background: var(--accent); color: white; box-shadow: 0 0 10px rgba(0,123,255,0.4); transform: scale(1.1); z-index: 2; }
-    .cell.exit { border: 2px solid var(--success); color: var(--success); background: #f0fdf4; }
+    .cell.exit { border: 2px solid var(--success); color: var(--success); background: #f0fdf4; font-weight: bold; }
     .cell.fog { background: var(--fog); border: none; pointer-events: none; }
     .type-energy { color: var(--accent); background: #e6f0ff; }
     .type-drain { color: var(--danger); background: #ffe8e9; }
@@ -56,6 +57,7 @@
     .d-pad { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; max-width: 200px; }
     .btn { background: var(--surface); border: 1px solid #dee2e6; color: var(--text); padding: 0.6rem; border-radius: 6px; cursor: pointer; font-family: var(--font); font-weight: 500; transition: 0.2s; text-align: center; }
     .btn:active { background: var(--accent); color: white; border-color: var(--accent); transform: scale(0.95); }
+    .btn.danger { border-color: var(--danger); color: var(--danger); }
 
     /* LORE/UPGRADES */
     #lore-panel h3 { margin-bottom: 1rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; display: inline-block; }
@@ -80,8 +82,9 @@
   <div id="app">
     <!-- DESKTOP -->
     <div id="desktop" class="screen active">
-      <div id="desktop-stats">LVL <span id="desk-lvl">1</span> | ⚡ <span id="desk-energy">50</span>/<span id="desk-cap">50</span></div>
-      <h2 style="margin-bottom: 1rem; color: var(--text-dim); font-size: 0.8rem; letter-spacing: 1px;">SYSTEM OS v3.2</h2>
+      <div id="desktop-stats">LVL <span id="desk-lvl">1</span> |  <span id="desk-energy">50</span>/<span id="desk-cap">50</span></div>
+      <button class="settings-btn" onclick="App.openSettings()">⚙️ Settings</button>
+      <h2 style="margin-bottom: 1rem; color: var(--text-dim); font-size: 0.8rem; letter-spacing: 1px;">SYSTEM OS v3.3</h2>
       <div class="icon" onclick="App.launchDecode()"><div class="icon-title">DECODE</div><div class="icon-label">Launch Archive</div></div>
       <div class="icon" onclick="App.openLore()"><div class="icon-title">UPGRADES</div><div class="icon-label">Slot Manager</div></div>
       <div class="icon" onclick="App.importSave()"><div class="icon-title">LOAD</div><div class="icon-label">Import Data</div></div>
@@ -115,6 +118,15 @@
       <h4 style="margin: 1rem 0 0.5rem; color: var(--text-dim); font-size: 0.9rem;">AVAILABLE FRAGMENTS</h4>
       <div class="fragment-list" id="fragment-list"></div>
       <button class="btn" onclick="App.returnToDesktop()" style="margin-top: 1rem; width: 100%;">BACK TO DESKTOP</button>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="settings-screen" class="screen">
+      <h3>SYSTEM SETTINGS</h3>
+      <div style="margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem;">
+        <button class="btn danger" onclick="App.resetProgress()">RESET ALL PROGRESS</button>
+        <button class="btn" onclick="App.returnToDesktop()">BACK TO DESKTOP</button>
+      </div>
     </div>
   </div>
   <div id="terminal"></div>
@@ -158,9 +170,15 @@ const State = {
   load() {
     const raw = localStorage.getItem('archive_save_v3');
     if(!raw) return;
-    const { data, hash } = JSON.parse(raw);
-    if(Utils.hash(data) !== hash) { Utils.log("DATA CORRUPTED. USING DEFAULT.", "warn"); return; }
-    this.data = { ...this.data, ...data };
+    try {
+      const { data, hash } = JSON.parse(raw);
+      if(Utils.hash(data) !== hash) { Utils.log("DATA CORRUPTED. USING DEFAULT.", "warn"); return; }
+      this.data = { ...this.data, ...data };
+      // Гарантируем, что энергия не выходит за пределы
+      this.data.energy = Math.max(0, Math.min(this.data.energy, this.data.cap));
+    } catch(e) {
+      Utils.log("SAVE ERROR. USING DEFAULT.", "warn");
+    }
   }
 };
 
@@ -207,7 +225,7 @@ const Grid = {
       else if(r < 0.55) cells[i] = 'lore';
       else if(r < 0.7 + lvl*0.03) cells[i] = 'trap';
       else if(r < 0.75) cells[i] = 'bypass';
-      else if(r < 0.78) cells[i] = 'fail'; // 🔥 Total Fail
+      else if(r < 0.78) cells[i] = 'fail';
       else cells[i] = 'path';
     }
     
@@ -236,7 +254,7 @@ const Grid = {
     Utils.log(`GRID MOUNTED: ${sz}x${sz}`, "info");
   },
   updateFog() {
-    const radius = State.data.upgrades.includes('VISION_BOOST') ? 2 : 1; // 👁️ Vision upgrade
+    const radius = State.data.upgrades.includes('VISION_BOOST') ? 2 : 1;
     const {size, px, py, visited} = State.run;
     State.run.fog = new Set();
     const add = (x,y) => {
@@ -264,6 +282,7 @@ const Grid = {
         const key = `${x},${y}`;
         const el = document.createElement('div'); el.className = 'cell';
         const type = State.run.grid[y*State.run.size+x];
+        
         if(State.run.fog.has(key)) {
           if(x===State.run.px && y===State.run.py) el.classList.add('current');
           else if(type==='exit') el.classList.add('exit');
@@ -272,7 +291,10 @@ const Grid = {
           
           if(!['wall','spawn','exit','path'].includes(type) && !(x===State.run.px && y===State.run.py)) {
             el.classList.add(`type-${type}`);
-            el.textContent = { energy:'⚡', drain:'📉', lore:'📁', trap:'💣', bypass:'⏩', fail:'💀' }[type] || '?';
+            const icons = { energy:'⚡', drain:'📉', lore:'📁', trap:'💣', bypass:'⏩', fail:'💀' };
+            el.textContent = icons[type] || '?';
+          } else if(type==='exit' && !(x===State.run.px && y===State.run.py)) {
+            el.textContent = 'EXIT';
           }
         } else { el.classList.add('fog'); }
         cont.appendChild(el);
@@ -290,16 +312,14 @@ const Movement = {
     const key = `${nx},${ny}`;
     let cell = State.run.grid[ny*State.run.size+nx];
     
-    // 🧱 Wall Bypass
     if(cell === 'wall' && State.run.wallBypassCharges > 0) {
       State.run.wallBypassCharges--;
-      cell = 'path'; // Treat as path for this step
+      cell = 'path';
       Utils.log(`WALL PHASED [${State.run.wallBypassCharges} left]`, "info");
     } else if(cell === 'wall') {
       return;
     }
     
-    // 💡 Energy Cost (only for new cells)
     if(!State.run.visited.has(key)) {
       State.data.energy = Math.max(0, State.data.energy - 1);
       State.run.steps++;
@@ -424,11 +444,20 @@ const UI = {
 };
 
 const App = {
-  init() { State.load(); Idle.calc(); Utils.log("SYSTEM READY"); this.returnToDesktop(); setInterval(() => State.save(), 5000); },
+  init() { 
+    State.load(); 
+    Idle.calc(); 
+    Utils.log("SYSTEM READY"); 
+    this.returnToDesktop(); 
+    setInterval(() => State.save(), 5000); 
+  },
   launchDecode() { 
-    State.data.lastTick = Date.now(); State.data.inRun = true; Grid.generate(); 
+    State.data.lastTick = Date.now(); 
+    State.data.inRun = true; 
+    Grid.generate(); 
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); 
-    document.getElementById('grid-screen').classList.add('active'); Grid.render(); 
+    document.getElementById('grid-screen').classList.add('active'); 
+    Grid.render(); 
   },
   move(dx, dy) { Movement.step(dx, dy); },
   abortRun() { if(confirm("Abort current run?")) this.endRun(false, "Aborted"); },
@@ -438,17 +467,41 @@ const App = {
       State.data.runsCleared++;
       const xp = 50 + State.data.level * 20;
       const energyReward = 15 + State.data.level * 4;
-      State.data.xp += xp; State.data.level = Math.floor(State.data.xp / 150) + 1;
+      State.data.xp += xp; 
+      State.data.level = Math.floor(State.data.xp / 150) + 1;
       State.data.cap = 50 + State.data.level * 10;
-      State.data.energy = Math.min(State.data.cap, State.data.energy + energyReward);
+      // Гарантируем, что энергия не превышает cap и не уходит в минус
+      State.data.energy = Math.max(0, Math.min(State.data.cap, State.data.energy + energyReward));
       Utils.log(`${reason}. +${xp}XP | +${energyReward}⚡`, "info");
     } else {
       Utils.log(reason, "warn");
     }
+    State.save(); // Сохраняем сразу после рана
     this.returnToDesktop();
   },
-  openLore() { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById('lore-screen').classList.add('active'); UI.renderSlots(); },
-  returnToDesktop() { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById('desktop').classList.add('active'); UI.updateStats(); State.save(); },
+  openLore() { 
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); 
+    document.getElementById('lore-screen').classList.add('active'); 
+    UI.renderSlots(); 
+  },
+  openSettings() {
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('settings-screen').classList.add('active');
+  },
+  resetProgress() {
+    if(confirm("Are you sure? This will delete all progress!")) {
+      localStorage.removeItem('archive_save_v3');
+      State.data = { level: 1, xp: 0, energy: 50, cap: 50, fragments: [], upgrades: [null, null, null], lastTick: Date.now(), runsCleared: 0, inRun: false };
+      Utils.log("PROGRESS RESET", "warn");
+      this.returnToDesktop();
+    }
+  },
+  returnToDesktop() { 
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); 
+    document.getElementById('desktop').classList.add('active'); 
+    UI.updateStats(); 
+    State.save(); 
+  },
   exportSave() { const json = JSON.stringify(State.data); navigator.clipboard.writeText(json).then(()=>Utils.log("SAVE COPIED", "info")); },
   importSave() { const input = prompt("PASTE SAVE JSON:"); if(!input) return; try { const d = JSON.parse(input); if(d.energy!==undefined) { State.data = {...State.data, ...d}; State.save(); Utils.log("SAVE IMPORTED", "info"); } } catch(e) { Utils.log("INVALID SAVE", "warn"); } }
 };
