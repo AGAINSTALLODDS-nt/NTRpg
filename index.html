@@ -201,39 +201,77 @@ const Grid = {
     const rng = Utils.mulberry32(Date.now() ^ lvl ^ Math.random()*10000);
     const wallChance = 0.15 + (lvl*0.03);
     
+    // Шаг 1: Расставляем стены
     for(let i=0; i<sz*sz; i++) {
       if(rng() < wallChance) cells[i] = 'wall';
     }
     
+    // Спавн и выход
     State.run.px = 0; State.run.py = 0;
     State.run.exitX = sz-1; State.run.exitY = sz-1;
     cells[0] = 'spawn'; 
     cells[sz*sz-1] = 'exit';
     
+    // Шаг 2: Валидация пути через BFS, убираем стены при необходимости
     let attempts = 0;
-    while(!Utils.bfs(cells, {x:0,y:0}, {x:sz-1,y:sz-1}, sz) && attempts < 100) {
+    while(!Utils.bfs(cells, {x:0,y:0}, {x:sz-1,y:sz-1}, sz) && attempts < 200) {
       const idx = Math.floor(rng()*cells.length);
       if(cells[idx]==='wall') cells[idx] = 'path';
       attempts++;
     }
     
+    // 🔑 Шаг 3: Сохраняем координаты гарантированного пути
+    const safePath = new Set();
+    const findPath = (start, end, size, grid) => {
+      const queue = [{...start, prev: null}];
+      const visited = new Set([`${start.x},${start.y}`]);
+      while(queue.length) {
+        const curr = queue.shift();
+        if(curr.x === end.x && curr.y === end.y) {
+          // Восстанавливаем путь назад
+          let node = curr;
+          while(node) {
+            safePath.add(`${node.x},${node.y}`);
+            node = node.prev;
+          }
+          return true;
+        }
+        for(const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+          const nx = curr.x + dx, ny = curr.y + dy;
+          const key = `${nx},${ny}`;
+          if(nx>=0 && nx<size && ny>=0 && ny<size && !visited.has(key) && grid[ny*size+nx]!=='wall') {
+            visited.add(key);
+            queue.push({x: nx, y: ny, prev: curr});
+          }
+        }
+      }
+      return false;
+    };
+    findPath({x:0,y:0}, {x:sz-1,y:sz-1}, sz, cells);
+    
+    // Шаг 4: Расставляем спец-ячейки, НО не ставим 'fail' на безопасном пути
     for(let y=0; y<sz; y++) {
       for(let x=0; x<sz; x++) {
         const i = y*sz + x;
+        const key = `${x},${y}`;
         if(['wall','spawn','exit'].includes(cells[i])) continue;
         
+        const isOnSafePath = safePath.has(key);
         let r = rng();
+        
         if(r < 0.25) cells[i] = 'energy';
         else if(r < 0.45) cells[i] = 'drain';
         else if(r < 0.55) cells[i] = 'lore';
         else if(r < 0.70) cells[i] = 'trap';
         else if(r < 0.75) cells[i] = 'bypass';
-        else if(r < 0.78) cells[i] = 'fail';
+        // ❗ Ключевое: fail только НЕ на гарантированном пути
+        else if(r < 0.78 && !isOnSafePath) cells[i] = 'fail';
         else if(r < 0.83) cells[i] = 'objfile';
         else cells[i] = 'path';
       }
     }
     
+    // Шаг 5: Инициализация целей
     State.run.objectives = [];
     if(Math.random() < 0.6) {
       const pool = ['steps', 'file', 'drain', 'energy'];
@@ -248,6 +286,7 @@ const Grid = {
       State.run.objectives.push({ type, target, progress: 0 });
     }
     
+    // Шаг 6: Сброс состояния рана
     State.run.visited = new Set(["0,0"]);
     State.run.triggered = new Set();
     State.run.steps = 0;
@@ -259,12 +298,14 @@ const Grid = {
     State.run.grid = cells;
     this.updateFog();
     this.updateObjectiveUI();
-    Utils.log(`GRID MOUNTED: ${sz}x${sz}`, "info");
+    Utils.log(`GRID MOUNTED: ${sz}x${sz} | Safe path: ${safePath.size} cells`, "info");
     if(State.run.objectives.length > 0) {
       const o = State.run.objectives[0];
       Utils.log(`OBJECTIVE: ${o.type} ${o.progress}/${o.target}`, "info");
     }
   },
+  
+  // ... остальные методы (updateFog, updateObjectiveUI, render) без изменений
   
   updateFog() {
     const radius = State.data.upgrades.includes('VISION_BOOST') ? 2 : 1;
