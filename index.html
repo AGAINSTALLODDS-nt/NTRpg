@@ -3,165 +3,190 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <title>ARCHIVE://DESCENT</title>
+  <link rel="manifest" href="manifest.json">
   <style>
     :root {
-      --bg: #f4f7f6; --surface: #ffffff; --text: #1a2a3a; --text-dim: #667788;
-      --accent: #007bff; --danger: #e63946; --lore: #00b4d8; --success: #2a9d8f;
-      --wall: #e0e5ec; --visited: #eef4f8; --fog: #f8f9fa;
-      --shadow: 0 2px 8px rgba(0,0,0,0.08);
-      --font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --bg: #0a0a0a; --text: #00ff41; --text-dim: #008f11; --danger: #ff3333; --lore: #00ccff; --wall: #1a1a1a; --visited: #005500;
+      --font: 'Courier New', monospace;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; outline: none; }
-    body { background: var(--bg); color: var(--text); font-family: var(--font); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-    #app { flex: 1; display: flex; flex-direction: column; padding: 1rem; overflow: hidden; position: relative; }
-    .screen { display: none; flex: 1; flex-direction: column; background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); padding: 1rem; margin-bottom: 1rem; overflow: hidden; }
-    .screen.active { display: flex; animation: fadeIn 0.3s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 16px; line-height: 1.5; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
     
-    #desktop { justify-content: center; align-items: center; gap: 1.5rem; }
-    #desktop-stats { position: absolute; top: 1rem; left: 1rem; font-size: 0.9rem; font-weight: 600; color: var(--text-dim); background: var(--surface); padding: 0.5rem 1rem; border-radius: 8px; box-shadow: var(--shadow); }
-    .settings-btn { position: absolute; top: 1rem; right: 1rem; background: var(--surface); border: 1px solid #e1e8ed; border-radius: 8px; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.9rem; box-shadow: var(--shadow); }
-    .icon { width: 140px; height: 100px; background: var(--surface); border: 1px solid #e1e8ed; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow); }
-    .icon:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,123,255,0.15); }
-    .icon-label { margin-top: 0.5rem; font-size: 0.9rem; font-weight: 500; color: var(--text-dim); }
-    .icon-title { font-weight: bold; color: var(--accent); font-size: 1.1rem; }
+    /* CRT EFFECTS */
+    .crt::before { content: ""; position: fixed; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.05) 2px, rgba(0,255,65,0.05) 4px); pointer-events: none; z-index: 999; }
+    .crt::after { content: ""; position: fixed; inset: 0; background: radial-gradient(circle, transparent 60%, rgba(0,0,0,0.6) 100%); pointer-events: none; z-index: 998; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .cursor { animation: blink 1s step-end infinite; }
+    .glitch { animation: flicker 0.1s infinite; }
+    @keyframes flicker { 0% { opacity: 0.9; transform: translateX(1px); } 100% { opacity: 1; transform: translateX(-1px); } }
 
-    #grid-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding: 0.5rem; background: #f8f9fa; border-radius: 8px; font-size: 0.85rem; }
-    #objective-tracker { color: var(--accent); font-weight: 600; flex: 1; margin-left: 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #grid-wrapper { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 0.5rem; }
-    #grid-container { display: grid; gap: 2px; user-select: none; background: #e9ecef; padding: 2px; border-radius: 4px; }
-    .cell { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; border-radius: 3px; transition: all 0.15s; background: var(--surface); border: 1px solid #dee2e6; }
-    .cell.path { background: #f8f9fa; border-color: #e9ecef; }
-    .cell.wall { background: var(--wall); border-color: #ced4da; cursor: not-allowed; }
-    .cell.visited { background: var(--visited); border-color: var(--accent); }
-    .cell.current { background: var(--accent); color: white; box-shadow: 0 0 10px rgba(0,123,255,0.4); transform: scale(1.1); z-index: 2; border-color: var(--accent); }
-    .cell.exit { border: 2px solid var(--success); background: #f0fdf4; font-size: 9px; font-weight: bold; }
-    .cell.fog { background: var(--fog); border-color: #f1f3f5; visibility: hidden; }
-    .type-energy { color: var(--accent); background: #e6f0ff; }
-    .type-drain { color: var(--danger); background: #ffe8e9; }
-    .type-trap { color: var(--danger); background: #ffe8e9; }
-    .type-lore { color: var(--lore); background: #e0f7fa; }
-    .type-bypass { color: var(--success); background: #e0f2e9; }
-    .type-fail { background: #000; color: var(--danger); border: 2px solid var(--danger); }
-    .type-objfile { color: var(--lore); background: #e0f7fa; border: 1px dashed var(--lore); }
+    /* LAYOUT */
+    #app { flex: 1; display: flex; flex-direction: column; padding: 1rem; overflow: hidden; }
+    .screen { display: none; flex: 1; flex-direction: column; }
+    .screen.active { display: flex; }
     
-    .controls-wrapper { margin-top: 1rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
-    .abort-btn { width: 100%; padding: 0.7rem; background: var(--surface); border: 1px solid var(--danger); color: var(--danger); border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
-    .abort-btn:active { background: var(--danger); color: white; }
-    .d-pad { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; max-width: 200px; }
-    .btn { background: var(--surface); border: 1px solid #dee2e6; color: var(--text); padding: 0.6rem; border-radius: 6px; cursor: pointer; font-family: var(--font); font-weight: 500; transition: 0.2s; text-align: center; }
-    .btn:active { background: var(--accent); color: white; border-color: var(--accent); transform: scale(0.95); }
+    /* DESKTOP */
+    #desktop { align-items: center; justify-content: center; gap: 2rem; }
+    .icon { width: 120px; padding: 1rem; border: 1px solid var(--text-dim); text-align: center; cursor: pointer; transition: all 0.2s; }
+    .icon:hover, .icon:focus { background: var(--text-dim); color: var(--bg); box-shadow: 0 0 8px var(--text); }
+    
+    /* GRID */
+    #grid-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    #grid-stats { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-dim); }
+    #grid-container { flex: 1; overflow: auto; display: grid; gap: 2px; align-content: start; user-select: none; }
+    .cell { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 2px; transition: all 0.1s; }
+    .cell.path { background: var(--wall); border: 1px solid #222; }
+    .cell.wall { background: #000; border: 1px solid #111; cursor: not-allowed; }
+    .cell.visited { background: var(--visited); border-color: var(--text-dim); }
+    .cell.current { background: var(--text); color: var(--bg); box-shadow: 0 0 10px var(--text); animation: pulse 1s infinite; }
+    .cell.exit { border: 2px dashed var(--danger); }
+    .cell.fog { background: #050505; border: 1px solid #0a0a0a; }
+    .cell.energy { color: #00ff41; }
+    .cell.drain { color: #ff3333; }
+    .cell.lore { color: #00ccff; }
+    .cell.trap { color: #ffaa00; }
+    .cell.bypass { color: #ff00ff; }
+    @keyframes pulse { 50% { transform: scale(0.9); } }
+
+    /* LORE/UPGRADES */
+    #lore-panel { padding: 1rem; }
+    .slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem; }
+    .slot { border: 1px solid var(--text-dim); padding: 0.5rem; min-height: 60px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 0.8rem; }
+    .slot.filled { border-color: var(--lore); color: var(--lore); }
+    .fragment-list { max-height: 200px; overflow-y: auto; margin-top: 1rem; border: 1px solid var(--text-dim); padding: 0.5rem; }
+    .fragment-item { cursor: pointer; padding: 0.3rem; border-bottom: 1px solid #222; }
+    .fragment-item:hover { background: var(--text-dim); color: var(--bg); }
+
+    /* TERMINAL LOG */
+    #terminal { height: 120px; border-top: 1px solid var(--text-dim); margin-top: 0.5rem; padding: 0.5rem; overflow-y: auto; font-size: 0.8rem; background: #050505; }
+    .log { margin-bottom: 2px; }
+    .log.sys { color: var(--text-dim); }
+    .log.warn { color: var(--danger); }
+    .log.info { color: var(--lore); }
+
+    /* MODAL */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { background: var(--bg); border: 2px solid var(--text); padding: 1.5rem; max-width: 90vw; max-height: 80vh; overflow: auto; text-align: center; }
+    .btn { background: transparent; border: 1px solid var(--text); color: var(--text); padding: 0.5rem 1rem; margin: 0.5rem; cursor: pointer; font-family: var(--font); }
+    .btn:hover { background: var(--text); color: var(--bg); }
     .btn.danger { border-color: var(--danger); color: var(--danger); }
+    .btn.danger:hover { background: var(--danger); color: var(--bg); }
 
-    .slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; margin-top: 1rem; }
-    .slot { border: 1px dashed #dee2e6; padding: 0.8rem; min-height: 70px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 0.8rem; border-radius: 8px; background: #f8f9fa; color: var(--text-dim); transition: 0.2s; }
-    .slot.filled { border-style: solid; border-color: var(--accent); background: #e6f0ff; color: var(--accent); font-weight: bold; }
-    .fragment-list { max-height: 200px; overflow-y: auto; margin-top: 1rem; border: 1px solid #e1e8ed; border-radius: 8px; padding: 0.5rem; }
-    .fragment-item { padding: 0.6rem; border-bottom: 1px solid #f1f3f5; cursor: pointer; display: flex; justify-content: space-between; }
-    .fragment-item:hover { background: var(--surface); color: var(--accent); }
-    .tag { font-size: 0.7rem; background: #e9ecef; padding: 2px 6px; border-radius: 4px; }
-
-    .settings-screen { align-items: center; justify-content: center; gap: 1rem; }
-
-    #terminal { height: 80px; background: var(--surface); border-top: 1px solid #e1e8ed; padding: 0.5rem; overflow-y: auto; font-size: 0.75rem; font-family: monospace; color: var(--text-dim); border-radius: 0 0 12px 12px; }
-    .log { margin-bottom: 2px; } .log.info { color: var(--accent); } .log.warn { color: var(--danger); }
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; z-index: 100; }
-    .modal { background: var(--surface); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 1.5rem; max-width: 90vw; width: 320px; text-align: center; }
-    .modal h3 { color: var(--accent); margin-bottom: 0.5rem; }
-    .modal p { color: var(--text-dim); margin-bottom: 1.5rem; line-height: 1.4; }
-    .modal-actions { display: flex; gap: 0.5rem; justify-content: center; }
+    /* MOBILE */
+    @media (max-width: 430px) {
+      .cell { width: 28px; height: 28px; }
+      #terminal { height: 100px; }
+    }
   </style>
 </head>
-<body>
+<body class="crt">
   <div id="app">
+    <!-- DESKTOP -->
     <div id="desktop" class="screen active">
-      <div id="desktop-stats">LVL <span id="desk-lvl">1</span> | ⚡ <span id="desk-energy">50</span>/<span id="desk-cap">50</span></div>
-      <button class="settings-btn" onclick="App.openSettings()">⚙️</button>
-      <h2 style="margin-bottom: 1rem; color: var(--text-dim); font-size: 0.8rem; letter-spacing: 1px;">SYSTEM OS v3.6</h2>
-      <div class="icon" onclick="App.launchDecode()"><div class="icon-title">DECODE</div><div class="icon-label">Launch Archive</div></div>
-      <div class="icon" onclick="App.openLore()"><div class="icon-title">UPGRADES</div><div class="icon-label">Slot Manager</div></div>
-      <div class="icon" onclick="App.importSave()"><div class="icon-title">LOAD</div><div class="icon-label">Import Data</div></div>
-      <div class="icon" onclick="App.exportSave()"><div class="icon-title">SAVE</div><div class="icon-label">Export Data</div></div>
+      <h2 style="margin-bottom: 2rem;">UEFI-BIOS // V3.0</h2>
+      <div class="icon" onclick="App.launchDecode()">[DECODE ARCHIVE]</div>
+      <div class="icon" onclick="App.openLore()">[LORE DATABASE]</div>
+      <div class="icon" onclick="App.exportSave()">[EXPORT SAVE]</div>
+      <div class="icon" onclick="App.importSave()">[IMPORT SAVE]</div>
     </div>
 
+    <!-- GRID RUN -->
     <div id="grid-screen" class="screen">
-      <div id="grid-header">
-        <span>⚡ <span id="ui-energy">50</span></span>
-        <span id="objective-tracker"></span>
-        <span>📁 <span id="ui-lore">0</span></span>
+      <div id="grid-stats">
+        <span>LVL: <span id="ui-lvl">1</span></span>
+        <span>ENERGY: <span id="ui-energy">50</span>/<span id="ui-cap">50</span></span>
+        <span>LORE: <span id="ui-lore">0</span></span>
       </div>
-      <div id="grid-wrapper"><div id="grid-container"></div></div>
-      <div class="controls-wrapper">
-        <button class="abort-btn" onclick="App.abortRun()">ABORT RUN</button>
-        <div class="d-pad">
-          <div></div><button class="btn" onclick="App.move(0, -1)">▲</button><div></div>
-          <button class="btn" onclick="App.move(-1, 0)">◀</button>
-          <button class="btn" style="visibility:hidden">.</button>
-          <button class="btn" onclick="App.move(1, 0)">▶</button>
-          <div></div><button class="btn" onclick="App.move(0, 1)">▼</button><div></div>
-        </div>
+      <div id="grid-wrapper">
+        <div id="grid-container"></div>
+      </div>
+      <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; justify-content: center;">
+        <button class="btn" onclick="App.move(0, -1)">▲</button>
+      </div>
+      <div style="display: flex; gap: 0.5rem; justify-content: center;">
+        <button class="btn" onclick="App.move(-1, 0)">◀</button>
+        <button class="btn" onclick="App.abortRun()">ABORT</button>
+        <button class="btn" onclick="App.move(1, 0)">▶</button>
+      </div>
+      <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; justify-content: center;">
+        <button class="btn" onclick="App.move(0, 1)">▼</button>
       </div>
     </div>
 
+    <!-- LORE/UPGRADES -->
     <div id="lore-screen" class="screen">
-      <h3>MODULE CONFIG</h3>
+      <h3>SYSTEM CONFIG // UPGRADES</h3>
       <div class="slot-grid" id="slot-container"></div>
-      <h4 style="margin: 1rem 0 0.5rem; color: var(--text-dim); font-size: 0.9rem;">AVAILABLE FRAGMENTS</h4>
+      <h4 style="margin-top: 1rem;">UNLOCKED FRAGMENTS</h4>
       <div class="fragment-list" id="fragment-list"></div>
-      <button class="btn" onclick="App.returnToDesktop()" style="margin-top: 1rem; width: 100%;">BACK TO DESKTOP</button>
-    </div>
-
-    <div id="settings-screen" class="screen settings-screen">
-      <h3>SYSTEM SETTINGS</h3>
-      <div style="margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem; width: 100%;">
-        <button class="btn danger" style="width: 100%;" onclick="App.resetProgress()">⚠️ RESET ALL PROGRESS</button>
-        <button class="btn" style="width: 100%;" onclick="App.returnToDesktop()">BACK TO DESKTOP</button>
-      </div>
+      <button class="btn" onclick="App.returnToDesktop()" style="margin-top: 1rem;">[BACK TO DESKTOP]</button>
     </div>
   </div>
+
   <div id="terminal"></div>
+
   <div class="modal-overlay" id="modal">
     <div class="modal">
-      <h3 id="modal-title">DATA FRAGMENT</h3>
-      <p id="modal-body"></p>
+      <h3 id="modal-title">FRAGMENT DECRYPTED</h3>
+      <p id="modal-body" style="margin: 1rem 0; color: var(--lore);"></p>
       <div id="modal-actions"></div>
     </div>
   </div>
 
 <script>
+/**
+ * ARCHIVE://DESCENT - PROTOTYPE v3.0
+ * Architecture: core | idle | grid | movement | upgrades | lore | save_load | utils
+ * Deploy: GitHub Pages (static)
+ */
 const Utils = {
-  mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; },
-  hash(data) { try { return btoa(JSON.stringify(data) + "ARCHIVE_SALT_v3"); } catch(e) { return ""; } },
+  mulberry32(a) {
+    return () => {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  },
+  hash(data) {
+    try { return btoa(JSON.stringify(data) + "ARCHIVE_SALT_v3"); } catch(e) { return ""; }
+  },
   bfs(grid, start, end, size) {
     const q = [start], visited = new Set([`${start.x},${start.y}`]);
+    const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
     while(q.length) {
       const {x, y} = q.shift();
       if(x===end.x && y===end.y) return true;
-      for(const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0]]) {
-        const nx=x+dx, ny=y+dy, k=`${nx},${ny}`;
-        if(nx>=0 && nx<size && ny>=0 && ny<size && !visited.has(k) && grid[ny*size+nx]!=='wall') { visited.add(k); q.push({x:nx, y:ny}); }
+      for(const [dx, dy] of dirs) {
+        const nx=x+dx, ny=y+dy;
+        if(nx>=0 && nx<size && ny>=0 && ny<size && !visited.has(`${nx},${ny}`) && grid[ny*size+nx]!=='wall') {
+          visited.add(`${nx},${ny}`); q.push({x:nx, y:ny});
+        }
       }
-    } return false;
+    }
+    return false;
   },
   log(msg, type='sys') {
     const term = document.getElementById('terminal');
-    const div = document.createElement('div'); div.className = `log ${type}`; div.textContent = `> ${msg}`;
-    term.appendChild(div); term.scrollTop = term.scrollHeight;
+    const div = document.createElement('div');
+    div.className = `log ${type}`;
+    div.textContent = `> ${msg}`;
+    term.appendChild(div);
+    term.scrollTop = term.scrollHeight;
   }
 };
 
 const State = {
-  data: { level: 1, xp: 0, energy: 50, cap: 50, fragments: [], upgrades: [null, null, null], lastTick: Date.now(), runsCleared: 0, inRun: false },
-  run: { 
-    grid: [], size: 4, px: 0, py: 0, exitX: 0, exitY: 0, 
-    visited: new Set(), fog: new Set(), triggered: new Set(),
-    objectives: [], steps: 0, objFile: 0, objDrain: 0, objEnergy: 0,
-    wallBypassCharges: 0
+  data: {
+    level: 1, xp: 0, energy: 50, cap: 50, lorePoints: 0,
+    fragments: [], upgrades: [null, null, null],
+    lastTick: Date.now(), inRun: false, runSeed: 0
   },
+  run: { grid: [], size: 4, px: 0, py: 0, exitX: 0, exitY: 0, visited: new Set(), fog: new Set() },
   save(key='archive_save_v3') {
     const raw = { data: this.data, ts: Date.now() };
     localStorage.setItem(key, JSON.stringify({ ...raw, hash: Utils.hash(raw.data) }));
@@ -169,232 +194,91 @@ const State = {
   load() {
     const raw = localStorage.getItem('archive_save_v3');
     if(!raw) return;
-    try {
-      const { data, hash } = JSON.parse(raw);
-      if(Utils.hash(data) !== hash) { Utils.log("DATA CORRUPTED. USING DEFAULT.", "warn"); return; }
-      this.data = { ...this.data, ...data };
-      this.data.energy = Math.max(0, Math.min(this.data.energy, this.data.cap));
-    } catch(e) { Utils.log("SAVE ERROR. USING DEFAULT.", "warn"); }
+    const { data, hash } = JSON.parse(raw);
+    if(Utils.hash(data) !== hash) { Utils.log("INTEGRITY MISMATCH. RESEARCH MODE ENGAGED.", "warn"); return; }
+    this.data = { ...this.data, ...data };
   }
 };
 
 const Idle = {
   calc() {
-    if(State.data.inRun) return;
     const elapsed = (Date.now() - State.data.lastTick) / 1000;
-    if(elapsed < 5) return;
-    const baseRate = 0.05;
-    const boostRate = State.data.upgrades.includes('IDLE_BOOST') ? 1 : 0;
-    const regen = Math.floor(elapsed * (baseRate + boostRate));
+    if(elapsed < 0) return;
+    const regen = Math.floor(elapsed / 30) + (State.data.upgrades.filter(u=>u==='IDLE_BOOST').length * 0.5);
+    const decayCap = Math.floor(State.data.cap * Math.pow(0.9, Math.floor(elapsed/3600)));
+    State.data.cap = Math.max(50, State.data.cap);
     State.data.energy = Math.min(State.data.cap, State.data.energy + regen);
     State.data.lastTick = Date.now();
-    if(regen > 0) Utils.log(`IDLE SYNC: +${regen} Energy`, "info");
-  }
+    Utils.log(`IDLE SYNC: +${regen} ENERGY | CAP: ${State.data.cap}`, "sys");
+  },
+  saveTick() { State.data.lastTick = Date.now(); State.save(); }
 };
 
 const Grid = {
   generate() {
     const lvl = State.data.level;
-    State.run.size = Math.min(16, 4 + Math.floor(lvl/2)*2);
+    State.run.size = Math.min(32, 4 + Math.floor(lvl/2)*4);
     const sz = State.run.size;
     const cells = Array(sz*sz).fill('path');
-    const rng = Utils.mulberry32(Date.now() ^ lvl ^ Math.random()*10000);
-    const wallChance = 0.15 + (lvl*0.03);
+    const rng = Utils.mulberry32(Date.now() ^ lvl);
+    const wallChance = 0.15 + (lvl*0.05);
     
-    // Шаг 1: Расставляем стены
-    for(let i=0; i<sz*sz; i++) {
-      if(rng() < wallChance) cells[i] = 'wall';
-    }
+    for(let i=0; i<sz*sz; i++) if(rng() < wallChance) cells[i] = 'wall';
     
-    // Спавн и выход
     State.run.px = 0; State.run.py = 0;
     State.run.exitX = sz-1; State.run.exitY = sz-1;
-    cells[0] = 'spawn'; 
-    cells[sz*sz-1] = 'exit';
+    cells[State.run.py*sz + State.run.px] = 'spawn';
+    cells[State.run.exitY*sz + State.run.exitX] = 'exit';
     
-    // Шаг 2: Валидация пути через BFS, убираем стены при необходимости
-    let attempts = 0;
-    while(!Utils.bfs(cells, {x:0,y:0}, {x:sz-1,y:sz-1}, sz) && attempts < 200) {
+    while(!Utils.bfs(cells, {x:0,y:0}, {x:sz-1,y:sz-1}, sz)) {
       const idx = Math.floor(rng()*cells.length);
       if(cells[idx]==='wall') cells[idx] = 'path';
-      attempts++;
     }
     
-    // 🔑 Шаг 3: Сохраняем координаты гарантированного пути
-    const safePath = new Set();
-    const findPath = (start, end, size, grid) => {
-      const queue = [{...start, prev: null}];
-      const visited = new Set([`${start.x},${start.y}`]);
-      while(queue.length) {
-        const curr = queue.shift();
-        if(curr.x === end.x && curr.y === end.y) {
-          // Восстанавливаем путь назад
-          let node = curr;
-          while(node) {
-            safePath.add(`${node.x},${node.y}`);
-            node = node.prev;
-          }
-          return true;
-        }
-        for(const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0]]) {
-          const nx = curr.x + dx, ny = curr.y + dy;
-          const key = `${nx},${ny}`;
-          if(nx>=0 && nx<size && ny>=0 && ny<size && !visited.has(key) && grid[ny*size+nx]!=='wall') {
-            visited.add(key);
-            queue.push({x: nx, y: ny, prev: curr});
-          }
-        }
-      }
-      return false;
-    };
-    findPath({x:0,y:0}, {x:sz-1,y:sz-1}, sz, cells);
-    
-    // Шаг 4: Расставляем спец-ячейки, НО не ставим 'fail' на безопасном пути
+    // Assign cell effects
+    const types = ['path','energy','drain','lore','trap','bypass'];
     for(let y=0; y<sz; y++) {
       for(let x=0; x<sz; x++) {
         const i = y*sz + x;
-        const key = `${x},${y}`;
-        if(['wall','spawn','exit'].includes(cells[i])) continue;
-        
-        const isOnSafePath = safePath.has(key);
-        let r = rng();
-        
-        if(r < 0.25) cells[i] = 'energy';
-        else if(r < 0.45) cells[i] = 'drain';
-        else if(r < 0.55) cells[i] = 'lore';
-        else if(r < 0.70) cells[i] = 'trap';
-        else if(r < 0.75) cells[i] = 'bypass';
-        // ❗ Ключевое: fail только НЕ на гарантированном пути
-        else if(r < 0.78 && !isOnSafePath) cells[i] = 'fail';
-        else if(r < 0.83) cells[i] = 'objfile';
-        else cells[i] = 'path';
+        if(cells[i]==='wall' || cells[i]==='spawn' || cells[i]==='exit') continue;
+        const w = [0.6-wallChance*0.5, 0.2-lvl*0.01, 0.1+lvl*0.03, 0.08, 0.07+lvl*0.04, 0.03];
+        let r = rng(), sum = 0;
+        for(let t=0; t<types.length; t++) { sum += w[t]; if(r < sum) { cells[i] = types[t]; break; } }
       }
     }
-    
-    // Шаг 5: Инициализация целей
-    State.run.objectives = [];
-    if(Math.random() < 0.6) {
-      const pool = ['steps', 'file', 'drain', 'energy'];
-      const type = pool[Math.floor(Math.random()*pool.length)];
-      let target;
-      switch(type) {
-        case 'steps': target = 10 + lvl*3; break;
-        case 'file': target = Math.min(3, 1 + Math.floor(lvl/2)); break;
-        case 'drain': target = Math.max(2, 2 + Math.floor(lvl/3)); break;
-        case 'energy': target = 3; break;
-      }
-      State.run.objectives.push({ type, target, progress: 0 });
-    }
-    
-    // Шаг 6: Сброс состояния рана
-    State.run.visited = new Set(["0,0"]);
-    State.run.triggered = new Set();
-    State.run.steps = 0;
-    State.run.objFile = 0; 
-    State.run.objDrain = 0; 
-    State.run.objEnergy = 0;
-    State.run.wallBypassCharges = State.data.upgrades.includes('WALL_BYPASS') ? 2 : 0;
-    
     State.run.grid = cells;
+    State.run.visited = new Set(["0,0"]);
     this.updateFog();
-    this.updateObjectiveUI();
-    Utils.log(`GRID MOUNTED: ${sz}x${sz} | Safe path: ${safePath.size} cells`, "info");
-    if(State.run.objectives.length > 0) {
-      const o = State.run.objectives[0];
-      Utils.log(`OBJECTIVE: ${o.type} ${o.progress}/${o.target}`, "info");
-    }
+    Utils.log(`ARCHIVE MOUNTED: ${sz}x${sz} SECTOR`, "info");
   },
-  
-  // ... остальные методы (updateFog, updateObjectiveUI, render) без изменений
-  
   updateFog() {
-    const radius = State.data.upgrades.includes('VISION_BOOST') ? 2 : 1;
     const {size, px, py, visited} = State.run;
     State.run.fog = new Set();
-    const add = (x,y) => {
-      for(let dy=-radius; dy<=radius; dy++) {
-        for(let dx=-radius; dx<=radius; dx++) {
-          const nx=x+dx, ny=y+dy;
-          if(nx>=0 && nx<size && ny>=0 && ny<size) {
-            State.run.fog.add(`${nx},${ny}`);
-          }
-        }
+    const add = (x,y,r) => {
+      for(let dy=-r; dy<=r; dy++) for(let dx=-r; dx<=r; dx++) {
+        const nx=x+dx, ny=y+dy;
+        if(nx>=0 && nx<size && ny>=0 && ny<size) State.run.fog.add(`${nx},${ny}`);
       }
     };
-    add(px, py);
-    visited.forEach(k => { 
-      const [x,y] = k.split(',').map(Number); 
-      add(x,y); 
-    });
+    add(px, py, 1);
+    visited.forEach(k => { const [x,y] = k.split(',').map(Number); add(x,y,1); });
   },
-  
-  updateObjectiveUI() {
-    const el = document.getElementById('objective-tracker');
-    if(!el) return;
-    if(State.run.objectives.length === 0) { 
-      el.textContent = "NO OBJECTIVES"; 
-      el.style.color = "#666"; 
-      return; 
-    }
-    const o = State.run.objectives[0];
-    const names = { steps: 'Steps', file: 'Files', drain: 'Drains', energy: 'Energy' };
-    const done = o.progress >= o.target;
-    el.textContent = `${names[o.type]}: ${o.progress}/${o.target}`;
-    el.style.color = done ? "#2a9d8f" : "#007bff";
-  },
-  
   render() {
     const cont = document.getElementById('grid-container');
-    if(!cont) return;
     cont.innerHTML = '';
-    cont.style.gridTemplateColumns = `repeat(${State.run.size}, 30px)`;
-    
-    const icons = { 
-      energy: '⚡', 
-      drain: '📉', 
-      lore: '📄', 
-      trap: '💣', 
-      bypass: '⏩', 
-      fail: '💀', 
-      objfile: '📁',
-      path: '',
-      wall: '🟥',
-      exit: '🟩'
-    };
-    
+    cont.style.gridTemplateColumns = `repeat(${State.run.size}, 28px)`;
     for(let y=0; y<State.run.size; y++) {
       for(let x=0; x<State.run.size; x++) {
         const key = `${x},${y}`;
-        const el = document.createElement('div'); 
+        const el = document.createElement('div');
         el.className = 'cell';
+        if(!State.run.fog.has(key)) { el.classList.add('fog'); cont.appendChild(el); continue; }
         const type = State.run.grid[y*State.run.size+x];
-        
-        if(State.run.fog.has(key)) {
-          if(x===State.run.px && y===State.run.py) {
-            el.classList.add('current');
-            el.textContent = '●';
-          } else if(type==='exit') {
-            el.classList.add('exit');
-            el.textContent = 'EXIT';
-          } else if(type==='wall') {
-            el.classList.add('wall');
-            el.textContent = '■';
-          } else if(State.run.visited.has(key)) {
-            el.classList.add('visited');
-            if(type && type!=='path' && type!=='spawn') {
-              el.classList.add(`type-${type}`);
-              el.textContent = icons[type] || '?';
-            }
-          } else {
-            if(type && type!=='path' && type!=='spawn') {
-              el.classList.add(`type-${type}`);
-              el.textContent = icons[type] || '?';
-              el.style.opacity = '0.6';
-            }
-          }
-        } else {
-          el.classList.add('fog');
-        }
+        el.classList.add(type==='wall'?'wall': State.run.visited.has(key)?'visited':'path');
+        if(x===State.run.px && y===State.run.py) { el.classList.add('current'); el.textContent = '▶'; }
+        else if(type==='exit') el.classList.add('exit');
+        else if(State.run.visited.has(key) && type!=='wall' && type!=='spawn') el.textContent = type[0].toUpperCase();
+        else if(type!=='path' && type!=='wall') el.classList.add(type);
         cont.appendChild(el);
       }
     }
@@ -404,208 +288,96 @@ const Grid = {
 
 const Movement = {
   step(dx, dy) {
-    if(State.data.energy <= 0) { 
-      App.endRun(false, "Energy depleted"); 
-      return; 
-    }
-    
+    if(State.data.energy <= 0) { Utils.log("ENERGY DEPLETED. ABORT RUN OR WAIT.", "warn"); return; }
     const nx = State.run.px + dx, ny = State.run.py + dy;
     if(nx<0||nx>=State.run.size||ny<0||ny>=State.run.size) return;
     const key = `${nx},${ny}`;
-    let cell = State.run.grid[ny*State.run.size+nx];
+    const cell = State.run.grid[ny*State.run.size+nx];
+    if(cell==='wall') return;
     
-    if(cell === 'wall') {
-      if(State.run.wallBypassCharges > 0) {
-        State.run.wallBypassCharges--;
-        cell = 'path';
-        Utils.log(`WALL PHASED [${State.run.wallBypassCharges} left]`, "info");
-      } else {
-        return;
-      }
-    }
-    
-    const isNew = !State.run.visited.has(key);
-    if(isNew) {
-      State.data.energy = Math.max(0, State.data.energy - 1);
-      State.run.steps++;
-    }
-    
-    if(State.data.energy === 0) { 
-      App.endRun(false, "Energy depleted"); 
-      return; 
-    }
-    
-    State.run.px = nx; 
-    State.run.py = ny;
+    State.data.energy -= 1 + (State.data.upgrades.includes('STEP_PENALTY')?1:0);
+    State.run.px = nx; State.run.py = ny;
     State.run.visited.add(key);
     Grid.updateFog();
-    
-    this.applyCell(cell, key, isNew);
+    this.applyCell(cell);
     Grid.render();
     
-    if(nx===State.run.exitX && ny===State.run.exitY) {
-      const objMet = State.run.objectives.length === 0 || 
-                     State.run.objectives[0].progress >= State.run.objectives[0].target;
-      if(objMet) {
-        App.endRun(true, "Archive Decoded");
-      } else {
-        Utils.log("OBJECTIVE NOT MET", "warn");
-      }
-    }
+    if(nx===State.run.exitX && ny===State.run.exitY) this.win();
+    else if(State.data.energy<=0) Utils.log("PATH 94% COMPLETE. CRITICAL.", "warn");
   },
-  
-  applyCell(type, key, isNew) {
+  applyCell(type) {
     switch(type) {
-      case 'energy':
-        if(isNew && !State.run.triggered.has(key)) {
-          const gain = 3 + Math.floor(State.data.level/3);
-          State.data.energy = Math.min(State.data.cap, State.data.energy + gain);
-          State.run.triggered.add(key);
-          State.run.objEnergy++;
-          Utils.log(`+${gain} Energy`, "info");
-        }
-        break;
-      case 'drain':
-        State.data.energy = Math.max(0, State.data.energy - 3);
-        State.run.objDrain++;
-        Utils.log(`-3 Energy (Drain)`, "warn");
-        break;
-      case 'trap':
-        State.data.energy = Math.max(0, State.data.energy - 2);
-        Utils.log(`-2 Energy (Trap)`, "warn");
-        break;
-      case 'lore':
-        if(isNew && !State.run.triggered.has(key)) {
-          State.run.triggered.add(key);
-          Lore.drop();
-        }
-        break;
-      case 'bypass':
-        if(isNew && !State.run.triggered.has(key)) {
-          State.data.energy = Math.min(State.data.cap, State.data.energy + 1);
-          State.run.triggered.add(key);
-          Utils.log(`+1 Bypass`, "info");
-        }
-        break;
-      case 'fail':
-        State.data.energy = Math.max(0, Math.floor(State.data.energy * 0.5));
-        App.endRun(false, "SYSTEM FAILURE");
-        return;
-      case 'objfile':
-        if(isNew && !State.run.triggered.has(key)) {
-          State.run.objFile++;
-          State.run.triggered.add(key);
-          Utils.log(`File collected`, "info");
-        }
-        break;
-    }
-    
-    if(State.run.objectives.length > 0) {
-      const o = State.run.objectives[0];
-      switch(o.type) {
-        case 'steps': o.progress = State.run.steps; break;
-        case 'file': o.progress = State.run.objFile; break;
-        case 'drain': o.progress = State.run.objDrain; break;
-        case 'energy': o.progress = State.run.objEnergy; break;
-      }
-      Grid.updateObjectiveUI();
+      case 'energy': State.data.energy += 2 + Math.floor(State.data.level/2); Utils.log(`CELL: +ENERGY`, "info"); break;
+      case 'drain': State.data.energy -= 3; Utils.log(`CELL: DRAIN ACTIVE`, "warn"); break;
+      case 'trap': if(Math.random()>0.5) { State.data.energy -= 2; Utils.log(`TRAP HIT! -2 ENERGY`, "warn"); } break;
+      case 'lore': Lore.drop(); Utils.log(`LORE SIGNAL DETECTED`, "info"); break;
+      case 'bypass': State.data.energy += 1; Utils.log(`BYPASS: +1 FREE STEP`, "info"); break;
+      default: break;
     }
     UI.updateStats();
+  },
+  win() {
+    State.inRun = false;
+    const xp = 50 + State.data.level * 20;
+    State.data.xp += xp; State.data.level = Math.floor(State.data.xp / 150) + 1;
+    State.data.cap = 50 + State.data.level * 10;
+    Utils.log(`ARCHIVE DECODED. +${xp}XP | LVL ${State.data.level}`, "sys");
+    App.returnToDesktop();
   }
 };
 
 const Lore = {
   fragments: [
-    {id:'f1', name:'Idle Core v1', effect:'IDLE_BOOST', desc:'+1 Energy/sec'},
-    {id:'f2', name:'Phase Shift', effect:'WALL_BYPASS', desc:'Ignore 2 Walls/run'},
-    {id:'f3', name:'Data Leech', effect:'ENERGY_SIPHON', desc:'+1 Energy from cells'},
-    {id:'f4', name:'Deep Scan', effect:'VISION_BOOST', desc:'+1 Vision Radius'}
+    {id:'f1', name:'Legacy Protocol', effect:'IDLE_BOOST'},
+    {id:'f2', name:'Neural Bridge', effect:'STEP_PASS'},
+    {id:'f3', name:'Data Leech', effect:'ENERGY_SIPHON'}
   ],
   drop() {
-    const chance = State.data.runsCleared === 0 ? 1 : (0.45 + State.data.level * 0.02);
-    if(Math.random() > chance && State.data.runsCleared > 0) return;
-    
-    const pool = this.fragments.filter(f => !State.data.fragments.includes(f.id));
-    if(pool.length === 0) return;
-    
-    let target;
-    if(!State.data.fragments.includes('f1') && Math.random() < 0.6) {
-      target = pool.find(f => f.id === 'f1') || pool[0];
-    } else {
-      target = pool[Math.floor(Math.random() * pool.length)];
+    const frag = this.fragments[Math.floor(Math.random()*this.fragments.length)];
+    if(!State.data.fragments.includes(frag.id)) {
+      State.data.fragments.push(frag.id);
+      UI.showModal(`FRAGMENT DECRYPTED`, `${frag.name} [${frag.effect}]\nInstall to upgrade slot?`, () => {
+        Lore.install(frag);
+      }, () => UI.hideModal());
     }
-    
-    State.data.fragments.push(target.id);
-    UI.showModal(`FRAGMENT FOUND`, `${target.name}\n${target.desc}`, 
-      () => { this.install(target); }, () => UI.hideModal());
   },
   install(frag) {
     const emptyIdx = State.data.upgrades.indexOf(null);
-    if(emptyIdx > -1) {
-      State.data.upgrades[emptyIdx] = frag.effect;
-      Utils.log(`INSTALLED: ${frag.name}`, "info");
-    } else {
-      Utils.log("SLOTS FULL", "warn");
-    }
+    if(emptyIdx === -1) { Utils.log("ALL SLOTS OCCUPIED. REPLACE?", "warn"); return; }
+    State.data.upgrades[emptyIdx] = frag.effect;
     UI.hideModal();
+    Utils.log(`UPGRADE INSTALLED: ${frag.name}`, "sys");
     UI.renderSlots();
   }
 };
 
 const UI = {
   updateStats() {
-    const el = document.getElementById('ui-energy');
-    if(el) el.textContent = State.data.energy;
-    const el2 = document.getElementById('desk-energy');
-    if(el2) el2.textContent = State.data.energy;
-    const el3 = document.getElementById('desk-cap');
-    if(el3) el3.textContent = State.data.cap;
-    const el4 = document.getElementById('desk-lvl');
-    if(el4) el4.textContent = State.data.level;
-    const el5 = document.getElementById('ui-lore');
-    if(el5) el5.textContent = State.data.fragments.length;
+    document.getElementById('ui-lvl').textContent = State.data.level;
+    document.getElementById('ui-energy').textContent = State.data.energy;
+    document.getElementById('ui-cap').textContent = State.data.cap;
+    document.getElementById('ui-lore').textContent = State.data.fragments.length;
   },
   renderSlots() {
-    const cont = document.getElementById('slot-container'); 
-    if(!cont) return;
+    const cont = document.getElementById('slot-container');
     cont.innerHTML = '';
-    const names = {
-      IDLE_BOOST: '+1⚡/sec', 
-      WALL_BYPASS: '2 Wall Bypass', 
-      ENERGY_SIPHON: '+1 Cell Gain', 
-      VISION_BOOST: '+2 Vision'
-    };
     State.data.upgrades.forEach((u, i) => {
       const el = document.createElement('div');
       el.className = `slot ${u?'filled':''}`;
-      el.textContent = u ? names[u] : `SLOT ${i+1} [EMPTY]`;
-      el.onclick = () => { 
-        if(u) { 
-          State.data.upgrades[i]=null; 
-          UI.renderSlots(); 
-          Utils.log(`SLOT ${i+1} CLEARED`); 
-        } 
-      };
+      el.textContent = u || `SLOT ${i+1} [EMPTY]`;
+      el.onclick = () => { if(u) { State.data.upgrades[i]=null; UI.renderSlots(); Utils.log(`SLOT ${i+1} CLEARED`); } };
       cont.appendChild(el);
     });
-    
-    const list = document.getElementById('fragment-list'); 
-    if(!list) return;
+    const list = document.getElementById('fragment-list');
     list.innerHTML = '';
     State.data.fragments.forEach(fid => {
       const f = Lore.fragments.find(x=>x.id===fid);
-      if(!f || State.data.upgrades.includes(f.effect)) return;
-      const el = document.createElement('div'); 
-      el.className='fragment-item';
-      el.innerHTML = `<span>${f.name}</span><span class="tag">${f.desc}</span>`;
+      if(!f) return;
+      const el = document.createElement('div'); el.className='fragment-item'; el.textContent = `${f.name} [${f.effect}]`;
       el.onclick = () => {
         const idx = State.data.upgrades.indexOf(null);
-        if(idx>-1) { 
-          Lore.install(f); 
-          UI.renderSlots(); 
-        } else {
-          Utils.log("SLOTS FULL", "warn");
-        }
+        if(idx>-1) { State.data.upgrades[idx]=f.effect; UI.renderSlots(); Utils.log(`INSTALLED ${f.name}`); }
+        else Utils.log("SLOTS FULL", "warn");
       };
       list.appendChild(el);
     });
@@ -613,112 +385,63 @@ const UI = {
   showModal(title, body, onConfirm, onCancel) {
     document.getElementById('modal-title').textContent = title;
     document.getElementById('modal-body').textContent = body;
-    const acts = document.getElementById('modal-actions'); 
-    acts.innerHTML='';
-    const b1=document.createElement('button'); 
-    b1.className='btn'; 
-    b1.textContent='INSTALL'; 
-    b1.onclick=onConfirm; 
-    acts.appendChild(b1);
-    const b2=document.createElement('button'); 
-    b2.className='btn'; 
-    b2.textContent='LATER'; 
-    b2.onclick=onCancel; 
-    acts.appendChild(b2);
+    const acts = document.getElementById('modal-actions'); acts.innerHTML='';
+    const b1=document.createElement('button'); b1.className='btn'; b1.textContent='INSTALL'; b1.onclick=onConfirm; acts.appendChild(b1);
+    const b2=document.createElement('button'); b2.className='btn'; b2.textContent='LATER'; b2.onclick=onCancel; acts.appendChild(b2);
     document.getElementById('modal').style.display='flex';
   },
-  hideModal() { 
-    document.getElementById('modal').style.display='none'; 
-  }
+  hideModal() { document.getElementById('modal').style.display='none'; }
 };
 
 const App = {
-  init() { 
-    State.load(); 
-    Idle.calc(); 
-    Utils.log("SYSTEM READY"); 
-    this.returnToDesktop(); 
-    setInterval(() => State.save(), 5000); 
+  init() {
+    State.load();
+    Idle.calc();
+    Utils.log("SYSTEM BOOT // ARCHIVE READY");
+    this.returnToDesktop();
+    setInterval(() => { State.save(); }, 5000);
   },
-  launchDecode() { 
-    State.data.lastTick = Date.now(); 
-    State.data.inRun = true; 
-    Grid.generate(); 
-    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); 
-    document.getElementById('grid-screen').classList.add('active'); 
-    Grid.render(); 
+  launchDecode() {
+    State.data.lastTick = Date.now();
+    Grid.generate();
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('grid-screen').classList.add('active');
+    Grid.render();
+    Utils.log("RUN INITIATED. NAVIGATE TO EXIT.");
   },
-  move(dx, dy) { 
-    Movement.step(dx, dy); 
-  },
-  abortRun() { 
-    if(confirm("Abort current run?")) this.endRun(false, "Aborted"); 
-  },
-  endRun(success, reason) {
-    State.data.inRun = false;
-    if(success) {
-      State.data.runsCleared++;
-      const xp = 50 + State.data.level * 20;
-      const energyReward = 15 + State.data.level * 4;
-      State.data.xp += xp; 
-      State.data.level = Math.floor(State.data.xp / 150) + 1;
-      State.data.cap = 50 + State.data.level * 10;
-      State.data.energy = Math.max(0, Math.min(State.data.cap, State.data.energy + energyReward));
-      Utils.log(`${reason}. +${xp}XP | +${energyReward}⚡`, "info");
-    } else {
-      Utils.log(reason, "warn");
-    }
-    State.save();
+  move(dx, dy) { Movement.step(dx, dy); },
+  abortRun() {
+    State.data.energy = Math.max(0, State.data.energy - 20);
+    Utils.log("RUN ABORTED. PENALTY APPLIED.", "warn");
     this.returnToDesktop();
   },
-  openLore() { 
-    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); 
-    document.getElementById('lore-screen').classList.add('active'); 
-    UI.renderSlots(); 
-  },
-  openSettings() {
+  openLore() {
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-    document.getElementById('settings-screen').classList.add('active');
+    document.getElementById('lore-screen').classList.add('active');
+    UI.renderSlots();
   },
-  resetProgress() {
-    if(confirm("⚠️ Reset ALL progress? This cannot be undone!")) {
-      localStorage.removeItem('archive_save_v3');
-      State.data = { level: 1, xp: 0, energy: 50, cap: 50, fragments: [], upgrades: [null, null, null], lastTick: Date.now(), runsCleared: 0, inRun: false };
-      Utils.log("PROGRESS RESET", "warn");
-      this.returnToDesktop();
-    }
+  returnToDesktop() {
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('desktop').classList.add('active');
+    UI.updateStats();
+    State.save();
   },
-  returnToDesktop() { 
-    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); 
-    document.getElementById('desktop').classList.add('active'); 
-    UI.updateStats(); 
-    State.save(); 
+  exportSave() {
+    const json = JSON.stringify(State.data);
+    navigator.clipboard.writeText(json).then(()=>Utils.log("SAVE COPIED TO CLIPBOARD", "info"));
   },
-  exportSave() { 
-    const json = JSON.stringify(State.data); 
-    navigator.clipboard.writeText(json).then(()=>Utils.log("SAVE COPIED", "info")); 
-  },
-  importSave() { 
-    const input = prompt("PASTE SAVE JSON:"); 
-    if(!input) return; 
-    try { 
-      const d = JSON.parse(input); 
-      if(d.energy!==undefined) { 
-        State.data = {...State.data, ...d}; 
-        State.save(); 
-        Utils.log("SAVE IMPORTED", "info"); 
-      } 
-    } catch(e) { 
-      Utils.log("INVALID SAVE", "warn"); 
-    } 
+  importSave() {
+    const input = prompt("PASTE SAVE JSON:");
+    if(!input) return;
+    try {
+      const d = JSON.parse(input);
+      if(d.energy!==undefined) { State.data = {...State.data, ...d}; State.save(); Utils.log("SAVE IMPORTED", "info"); }
+    } catch(e) { Utils.log("INVALID SAVE FORMAT", "warn"); }
   }
 };
 
 window.onload = App.init;
-window.onbeforeunload = () => { 
-  State.data.lastTick = Date.now(); 
-  State.save(); 
-};
+window.onbeforeunload = Idle.saveTick;
 </script>
 </body>
 </html>
